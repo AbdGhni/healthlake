@@ -24,3 +24,8 @@
 - 2026-10-14: Aggregated views exposed through `group_by` on existing endpoints (encounters?group_by=day, observations?group_by=code) rather than new paths.
 - 2026-10-14: API sessions run with TIME ZONE 'UTC' so every timestamp leaves the API in UTC (found in dashboard review).
 - 2026-10-14: Dashboard component tests use recorded responses of the real API; the live check is the screenshot run.
+- 2026-10-14: Java 21 LTS (Temurin 21.0.12.1, pinned) instead of 17: the exact version tested with Synthea and the HL7 validator.
+- 2026-10-14: One platform image (Airflow + isolated HealthLake and dbt venvs + Java + jars) for airflow-*, cli, synthea, db-init; slim images for api and dashboard.
+- 2026-10-14: CLI in images runs from source on PYTHONPATH through a wrapper (no build backend download at image build).
+- 2026-10-14: Backups never contain role passwords; restore re-applies them from .secrets via db-init.
+- 2026-10-14: Demo scenarios derive from the original nord batch so they never inherit each other's defects.

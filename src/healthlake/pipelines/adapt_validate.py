@@ -87,7 +87,8 @@ def validate(conn: psycopg.Connection, pid: str, ws: Workspace, store: LocalRawS
     with ws.ndjson_writer("validation.ndjson") as out:
         for rec in ws.ndjson("adapted.ndjson"):
             issues = list(rec["issues"])
-            if rec["resource"]:
+            # A record the adapter could not map is already rejected; validating its stub would only add noise.
+            if rec["resource"] and not any(i["severity"] in ("error", "fatal") for i in issues):
                 issues += [vars(i) for i in validate_resource(rec["type"], rec["resource"], rec["loc"], rec["file"])]
                 if rec["type"] == "Observation":
                     issues += [vars(i) for i in check_observation(rec["resource"], rec["loc"], rec["file"])]

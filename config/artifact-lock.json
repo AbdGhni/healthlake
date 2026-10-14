@@ -1,9 +1,16 @@
 {
-  "verified_on": "2026-10-14",
   "java": {
-    "target_runtime": "OpenJDK 17 (Debian package in the Airflow image)",
-    "tested_runtime": "OpenJDK 21.0.12 in the build sandbox",
-    "note": "Java 17 execution is not verified in the sandbox; see docs/compatibility.md"
+    "runtime": "Eclipse Temurin JRE 21.0.12.1+1 (LTS)",
+    "justification": "Java 21 LTS instead of 17: the sandbox runs and tests Synthea 4.0.0 and validator_cli 7.0.1 on 21.0.12.1; the image installs the same Temurin build",
+    "amd64": {
+      "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jre_x64_linux_hotspot_21.0.12.1_1.tar.gz",
+      "sha256": "2413149700df0f7d440500a84a8f764c535f21e5a5e87d38328b64eec2c5b500"
+    },
+    "arm64": {
+      "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jre_aarch64_linux_hotspot_21.0.12.1_1.tar.gz",
+      "sha256": "14be1f35ebdbd1f6e8d57eb911a3ffb74d6d9aa255abc5daf2b1302002cf2cf2"
+    },
+    "verified": "amd64 tarball downloaded, sha256 matched, validator_cli ran with it (2026-10-14)"
   },
   "artifacts": {
     "synthea": {
@@ -24,8 +31,39 @@
     "note": "the validator also caches terminology and extension packages on first run; the image pre-loads them so validation runs offline"
   },
   "docker_images": {
-    "status": "digests not resolved: no Docker daemon in the build sandbox",
-    "pending": ["postgres:17", "apache/airflow:3.3.2-python3.12", "python:3.12-slim-bookworm"]
+    "resolved_on": "2026-10-14",
+    "method": "Docker Hub registry API (multi-arch index digests); no daemon in the sandbox, images not pulled or built here",
+    "apache/airflow": {
+      "tag": "3.3.2-python3.12",
+      "digest": "sha256:9df9c8be4096b9cc626bd7cb1f2b8c712eef66c59c615f8c7e6200871ca10bd1",
+      "base": "debian bookworm-slim (image history)",
+      "archs": [
+        "amd64",
+        "arm64"
+      ]
+    },
+    "postgres": {
+      "tag": "17.11-bookworm",
+      "digest": "sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826"
+    },
+    "python": {
+      "tag": "3.12.15-slim-bookworm",
+      "digest": "sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258"
+    }
   },
-  "python_lock_files": ["requirements/app.lock", "requirements/dbt.lock", "requirements/dashboard.lock", "requirements/dev.lock"]
+  "python_lock_files": [
+    "requirements/app.lock",
+    "requirements/dbt.lock",
+    "requirements/dashboard.lock",
+    "requirements/dev.lock"
+  ],
+  "github_actions": {
+    "actions/checkout": "v7.0.1 3d3c42e5aac5ba805825da76410c181273ba90b1",
+    "astral-sh/setup-uv": "v10.3.0 1c37ad07a6a961277cf70c0d37d6f313000f5884",
+    "gitleaks/gitleaks-action": "v3.0.0 e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e",
+    "aquasecurity/trivy-action": "v0.36.0 ed142fd0673e97e23eac54620cfb913e5ce36c25",
+    "docker/setup-buildx-action": "v4.4.1 f87e5991a6d7451dcb8d9637bfbc97413f497069",
+    "actions/upload-artifact": "v7.0.2 cf430e030ddbb5b0abf93d22962f4752f3646cd9"
+  },
+  "verified_on": "2026-10-14"
 }

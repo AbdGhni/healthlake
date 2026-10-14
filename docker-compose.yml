@@ -1,0 +1,257 @@
+# HealthLake - technical demonstration using synthetic data only.
+# Not a certified healthcare platform; not intended or authorized to process real personal health data.
+#
+# Start: python scripts/bootstrap.py && docker compose build && docker compose up -d && python scripts/wait_ready.py
+# Ports are bound to 127.0.0.1 only. PostgreSQL is not exposed. No Docker socket is mounted anywhere.
+name: healthlake
+
+x-healthlake-db-env: &db-env
+  HEALTHLAKE_DB_HOST: postgres
+  HEALTHLAKE_DB_PORT: "5432"
+  HEALTHLAKE_DB_NAME: healthlake
+
+x-platform: &platform
+  image: healthlake/platform:${HEALTHLAKE_VERSION:-0.1.0}
+  build:
+    context: .
+    dockerfile: infrastructure/docker/platform.Dockerfile
+  networks: [data_net]
+  volumes:
+    - landing:/data/landing
+    - lake:/data/lake
+    - work:/data/work
+    - artifacts:/data/artifacts
+  security_opt: ["no-new-privileges:true"]
+
+x-airflow-env: &airflow-env
+  <<: *db-env
+  AIRFLOW__CORE__EXECUTOR: LocalExecutor
+  AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+  AIRFLOW__CORE__PARALLELISM: "4"
+  AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "${HEALTHLAKE_DAGS_PAUSED:-False}"
+  AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+  AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-api-server:8080/execution/
+  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN_CMD: cat /run/secrets/airflow_db_conn
+  AIRFLOW__CORE__FERNET_KEY_CMD: cat /run/secrets/airflow_fernet_key
+  AIRFLOW__API_AUTH__JWT_SECRET_CMD: cat /run/secrets/airflow_jwt_secret
+  AIRFLOW__API__SECRET_KEY_CMD: cat /run/secrets/airflow_api_secret_key
+  AIRFLOW__DAG_PROCESSOR__REFRESH_INTERVAL: "30"
+  AIRFLOW__LOGGING__BASE_LOG_FOLDER: /opt/airflow/logs
+  HEALTHLAKE_DB_INGEST_PASSWORD_FILE: /run/secrets/db_ingest_password
+  HEALTHLAKE_DB_DBT_PASSWORD_FILE: /run/secrets/db_dbt_password
+  HEALTHLAKE_DB_PUBLISH_PASSWORD_FILE: /run/secrets/db_publish_password
+
+x-airflow-secrets: &airflow-secrets
+  [airflow_db_conn, airflow_fernet_key, airflow_jwt_secret, airflow_api_secret_key, db_ingest_password,
+   db_dbt_password, db_publish_password]
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:17.11-bookworm@sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826}
+    environment:
+      POSTGRES_USER: healthlake_owner
+      POSTGRES_DB: healthlake
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_owner_password
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --encoding=UTF8 --locale=C.UTF-8"
+      TZ: UTC
+    command: ["postgres", "-c", "timezone=UTC", "-c", "log_timezone=UTC", "-c", "max_connections=200",
+              "-c", "shared_buffers=256MB"]
+    secrets: [db_owner_password, airflow_db_password]
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init:/docker-entrypoint-initdb.d:ro
+    networks: [data_net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U healthlake_owner -d healthlake"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+
+  db-init:
+    <<: *platform
+    # The Airflow image entrypoint prefixes unknown commands with `airflow`; bypass it for non-Airflow commands.
+    entrypoint: ["/usr/bin/dumb-init", "--"]
+    command: ["healthlake", "db-init"]
+    environment:
+      <<: *db-env
+      HEALTHLAKE_DB_OWNER_PASSWORD_FILE: /run/secrets/db_owner_password
+      HEALTHLAKE_DB_INGEST_PASSWORD_FILE: /run/secrets/db_ingest_password
+      HEALTHLAKE_DB_DBT_PASSWORD_FILE: /run/secrets/db_dbt_password
+      HEALTHLAKE_DB_PUBLISH_PASSWORD_FILE: /run/secrets/db_publish_password
+      HEALTHLAKE_DB_API_PASSWORD_FILE: /run/secrets/db_api_password
+    secrets: [db_owner_password, db_ingest_password, db_dbt_password, db_publish_password, db_api_password]
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
+  airflow-init:
+    <<: *platform
+    entrypoint: ["/usr/bin/dumb-init", "--"]
+    command: ["airflow-init"]
+    environment:
+      <<: *airflow-env
+    secrets: [airflow_db_conn, airflow_fernet_key, airflow_jwt_secret, airflow_api_secret_key, airflow_admin_password]
+    volumes:
+      - airflow_logs:/opt/airflow/logs
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
+  airflow-api-server:
+    <<: *platform
+    command: ["api-server"]
+    environment: *airflow-env
+    secrets: *airflow-secrets
+    volumes:
+      - landing:/data/landing
+      - lake:/data/lake
+      - work:/data/work
+      - artifacts:/data/artifacts
+      - airflow_logs:/opt/airflow/logs
+    ports: ["127.0.0.1:8080:8080"]
+    depends_on:
+      airflow-init: {condition: service_completed_successfully}
+      db-init: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/api/v2/monitor/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
+  airflow-scheduler:
+    <<: *platform
+    command: ["scheduler"]
+    environment: *airflow-env
+    secrets: *airflow-secrets
+    volumes:
+      - landing:/data/landing
+      - lake:/data/lake
+      - work:/data/work
+      - artifacts:/data/artifacts
+      - airflow_logs:/opt/airflow/logs
+    depends_on:
+      airflow-api-server: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --local"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  airflow-dag-processor:
+    <<: *platform
+    command: ["dag-processor"]
+    environment: *airflow-env
+    secrets: *airflow-secrets
+    volumes:
+      - airflow_logs:/opt/airflow/logs
+    depends_on:
+      airflow-api-server: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type DagProcessorJob --local"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  api:
+    image: healthlake/api:${HEALTHLAKE_VERSION:-0.1.0}
+    build:
+      context: .
+      dockerfile: infrastructure/docker/api.Dockerfile
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.12.15-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258}
+    environment:
+      <<: *db-env
+      HEALTHLAKE_DB_API_PASSWORD_FILE: /run/secrets/db_api_password
+      HEALTHLAKE_API_KEYS_FILE: /run/secrets/api_keys
+      HEALTHLAKE_API_CURSOR_SECRET_FILE: /run/secrets/api_cursor_secret
+    secrets: [db_api_password, api_keys, api_cursor_secret]
+    networks: [data_net, app_net]
+    ports: ["127.0.0.1:8000:8000"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    depends_on:
+      db-init: {condition: service_completed_successfully}
+    restart: unless-stopped
+
+  dashboard:
+    image: healthlake/dashboard:${HEALTHLAKE_VERSION:-0.1.0}
+    build:
+      context: .
+      dockerfile: infrastructure/docker/dashboard.Dockerfile
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.12.15-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258}
+    environment:
+      HEALTHLAKE_API_URL: http://api:8000
+      HEALTHLAKE_DASHBOARD_API_KEY_FILE: /run/secrets/dashboard_api_key
+    secrets: [dashboard_api_key]
+    networks: [app_net]
+    ports: ["127.0.0.1:8501:8501"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    depends_on:
+      api: {condition: service_healthy}
+    restart: unless-stopped
+
+  cli:
+    <<: *platform
+    profiles: [tools]
+    entrypoint: ["/usr/bin/dumb-init", "--", "healthlake"]
+    command: ["--help"]
+    environment:
+      <<: *db-env
+      HEALTHLAKE_DB_INGEST_PASSWORD_FILE: /run/secrets/db_ingest_password
+      HEALTHLAKE_DB_DBT_PASSWORD_FILE: /run/secrets/db_dbt_password
+      HEALTHLAKE_DB_PUBLISH_PASSWORD_FILE: /run/secrets/db_publish_password
+      HEALTHLAKE_INJECT_GATE_FAILURE: ${HEALTHLAKE_INJECT_GATE_FAILURE:-0}
+      HEALTHLAKE_CRASH_AT: ${HEALTHLAKE_CRASH_AT:-}
+    secrets: [db_ingest_password, db_dbt_password, db_publish_password]
+    restart: "no"
+
+  synthea:
+    <<: *platform
+    profiles: [tools]
+    entrypoint: ["/usr/bin/dumb-init", "--", "healthlake", "generate", "--jar", "/opt/healthlake/synthea.jar"]
+    command: ["--profile", "demo", "--revision", "1"]
+    environment:
+      <<: *db-env
+    restart: "no"
+
+networks:
+  data_net: {}
+  app_net: {}
+
+volumes:
+  pg_data: {}
+  landing: {}
+  lake: {}
+  work: {}
+  artifacts: {}
+  airflow_logs: {}
+
+secrets:
+  db_owner_password: {file: ./.secrets/db_owner_password}
+  db_ingest_password: {file: ./.secrets/db_ingest_password}
+  db_dbt_password: {file: ./.secrets/db_dbt_password}
+  db_publish_password: {file: ./.secrets/db_publish_password}
+  db_api_password: {file: ./.secrets/db_api_password}
+  airflow_db_password: {file: ./.secrets/airflow_db_password}
+  airflow_db_conn: {file: ./.secrets/airflow_db_conn}
+  airflow_fernet_key: {file: ./.secrets/airflow_fernet_key}
+  airflow_jwt_secret: {file: ./.secrets/airflow_jwt_secret}
+  airflow_api_secret_key: {file: ./.secrets/airflow_api_secret_key}
+  airflow_admin_password: {file: ./.secrets/airflow_admin_password}
+  api_keys: {file: ./.secrets/api_keys.json}
+  api_cursor_secret: {file: ./.secrets/api_cursor_secret}
+  dashboard_api_key: {file: ./.secrets/dashboard_api_key}

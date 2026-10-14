@@ -1,0 +1,6 @@
+title = "HealthLake gitleaks config"
+[extend]
+useDefault = true
+[allowlist]
+description = "Test-only values and recorded API responses (no secrets)"
+paths = ['''tests/fixtures/api_responses/.*''', '''\.github/workflows/ci\.yml''']

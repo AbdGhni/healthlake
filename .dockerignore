@@ -1,0 +1,14 @@
+.git
+.venvs
+.secrets
+.sync
+.env
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+dbt/target
+dbt/logs
+backups
+data
+docs/screenshots

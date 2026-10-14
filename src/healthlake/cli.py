@@ -197,6 +197,12 @@ def _api_keys(a: argparse.Namespace) -> dict[str, Any]:
     return {"clients": clients, "hashed_file": a.hashed_out, "plain_file": a.plain_out, "printed_secrets": False}
 
 
+def _scenario_batch(a: argparse.Namespace) -> dict[str, Any]:
+    from healthlake.generation.scenarios import make_scenario_batch
+
+    return make_scenario_batch(a.kind)
+
+
 def _quality_gate(a: argparse.Namespace) -> dict[str, Any]:
     from healthlake.release.gate import quality_gate
 
@@ -283,6 +289,9 @@ def build_parser() -> argparse.ArgumentParser:
     ak.add_argument("--hashed-out", required=True)
     ak.add_argument("--plain-out", required=True)
     ak.set_defaults(func=_api_keys)
+    sc = sub.add_parser("scenario-batch", help="write a demonstration batch (quarantine or invalid) for horizon-nord")
+    sc.add_argument("--kind", choices=["quarantine", "extend", "invalid"], required=True)
+    sc.set_defaults(func=_scenario_batch)
     qg = sub.add_parser("quality-gate", help="evaluate a built release")
     qg.add_argument("--release-id", type=_hex64, required=True)
     qg.set_defaults(func=_quality_gate)

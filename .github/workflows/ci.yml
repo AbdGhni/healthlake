@@ -1,0 +1,125 @@
+# HealthLake CI. Actions are pinned by commit SHA (tag in comment). Least privilege. No publication or deployment.
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.11.32"
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with: {version: "${{ env.UV_VERSION }}"}
+      - run: uv venv --python 3.12 .venvs/app && uv pip install --python .venvs/app/bin/python --require-hashes -r requirements/dev.lock
+      - run: .venvs/app/bin/ruff check src tests scripts airflow dashboards
+      - run: .venvs/app/bin/ruff format --check src tests scripts airflow dashboards
+      - run: .venvs/app/bin/mypy
+      - run: .venvs/app/bin/python scripts/gen_quality_catalog.py --check
+      - name: dependency audit
+        run: for f in app dbt dashboard; do .venvs/app/bin/pip-audit --strict -r requirements/$f.lock --disable-pip --no-deps; done
+
+  secrets-scan:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {fetch-depth: 0}
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env: {GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"}
+
+  tests:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17.11-bookworm@sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826
+        env: {POSTGRES_PASSWORD: ci-only-not-secret, POSTGRES_USER: postgres}
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      HEALTHLAKE_TEST_ADMIN_DSN: "host=localhost port=5432 user=postgres password=ci-only-not-secret dbname=postgres"
+      HEALTHLAKE_DBT_BIN: ${{ github.workspace }}/.venvs/dbt/bin/dbt
+      PGPASSWORD: ci-only-not-secret
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with: {version: "${{ env.UV_VERSION }}"}
+      - name: environments
+        run: |
+          uv venv --python 3.12 .venvs/app && uv pip install --python .venvs/app/bin/python --require-hashes -r requirements/dev.lock
+          uv pip install --python .venvs/app/bin/python --no-deps -e .
+          uv venv --python 3.12 .venvs/dbt && uv pip install --python .venvs/dbt/bin/python --require-hashes -r requirements/dbt.lock
+      - name: unit, integration (PostgreSQL), FHIR, dbt release, API, recovery
+        run: .venvs/app/bin/pytest -q -m "not java"
+      - name: OpenAPI contract is up to date
+        run: .venvs/app/bin/python scripts/export_openapi.py --check
+
+  airflow:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with: {version: "${{ env.UV_VERSION }}"}
+      - run: |
+          curl -fsSL -o /tmp/constraints.txt https://raw.githubusercontent.com/apache/airflow/constraints-3.3.2/constraints-3.12.txt
+          uv venv --python 3.12 .venvs/airflow
+          uv pip install --python .venvs/airflow/bin/python "apache-airflow[postgres]==3.3.2" apache-airflow-providers-fab pytest==9.1.1 --constraint /tmp/constraints.txt
+      - run: .venvs/airflow/bin/python -m pytest -q tests/airflow
+
+  dashboard:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with: {version: "${{ env.UV_VERSION }}"}
+      - run: |
+          uv venv --python 3.12 .venvs/dashboard
+          uv pip install --python .venvs/dashboard/bin/python --require-hashes -r requirements/dashboard.lock
+          uv pip install --python .venvs/dashboard/bin/python pytest==9.1.1
+      - run: HEALTHLAKE_DASHBOARD_API_KEY=unused .venvs/dashboard/bin/python -m pytest -q tests/dashboard
+
+  e2e:
+    needs: [lint, tests, airflow, dashboard]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - run: python3 scripts/bootstrap.py
+      - run: docker compose build
+      - name: image scan (HIGH/CRITICAL, fixed vulnerabilities only)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: healthlake/api:0.1.0
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - run: docker compose up -d && python3 scripts/wait_ready.py --timeout 900
+      - run: python3 scripts/demo.py --scenario all --profile test
+      - name: backup and restore round trip
+        run: |
+          python3 scripts/backup.py
+          python3 scripts/restore.py --from "backups/$(ls backups | tail -1)" --wipe-project-volumes
+      - name: filtered validation artifacts (reports and dbt run results only; no data, no secrets)
+        if: always()
+        run: |
+          mkdir -p ci-artifacts
+          docker compose run --rm --no-deps --entrypoint sh -v "$PWD/ci-artifacts:/out" cli -c \
+            'cp -r /data/artifacts/reports /out/ 2>/dev/null; for d in /data/artifacts/releases/*/; do mkdir -p /out/releases/$(basename $d); cp $d/run_results.json $d/release.json /out/releases/$(basename $d)/ 2>/dev/null; done; true'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with: {name: validation-artifacts, path: ci-artifacts, retention-days: 7}
+      - if: always()
+        run: docker compose logs --no-color > compose.log; docker compose down --volumes

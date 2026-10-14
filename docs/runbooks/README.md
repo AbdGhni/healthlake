@@ -22,3 +22,4 @@ Conventions:
 | A process or container died mid-run | [crash-recovery.md](crash-recovery.md) |
 | API down, 401/410/503 | [api-unavailable.md](api-unavailable.md) |
 | Dashboard shows old data | [stale-dashboard.md](stale-dashboard.md) |
+| Backup and restore | [restore.md](restore.md) |

@@ -1,0 +1,12 @@
+{"resourceType": "Bundle", "type": "collection", "entry": [
+ {"fullUrl": "https://warmup.example/fhir/Patient/w1", "resource": {"resourceType": "Patient", "id": "w1",
+  "meta": {"profile": ["http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"]},
+  "identifier": [{"system": "https://warmup.example", "value": "w1"}], "name": [{"family": "Warmup"}],
+  "gender": "unknown", "birthDate": "2000"}},
+ {"fullUrl": "https://warmup.example/fhir/Observation/o1", "resource": {"resourceType": "Observation", "id": "o1",
+  "meta": {"profile": ["http://hl7.org/fhir/StructureDefinition/bodyheight"]}, "status": "final",
+  "category": [{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "vital-signs"}]}],
+  "code": {"coding": [{"system": "http://loinc.org", "code": "8302-2"}]},
+  "subject": {"reference": "Patient/w1"}, "effectiveDateTime": "2025-01-01T00:00:00Z",
+  "valueQuantity": {"value": 170, "unit": "cm", "system": "http://unitsofmeasure.org", "code": "cm"}}}
+]}

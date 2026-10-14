@@ -1,6 +1,6 @@
 # Implementation status
 
-Last update: 2026-10-14, end of phase 10.
+Last update: 2026-10-14, end of phase 11.
 
 ## Phases 0-1 (done, verified)
 Plan, locked dependencies, Synthea 4.0.0 and HL7 validator 7.0.1 pinned, migrations, roles, CLI skeleton.
@@ -81,6 +81,24 @@ Plan, locked dependencies, Synthea 4.0.0 and HL7 validator 7.0.1 pinned, migrati
 - Verified live: uvicorn API + Streamlit + Chromium (Playwright); screenshots in docs/screenshots (test profile).
 - Visual review found and fixed: hidden bar labels, header wrapping, raw `None`/fractions in the quality table,
   and an API defect: timestamps were returned in the server time zone (+02:00); API sessions now use UTC.
+
+## Phase 11: Docker, CI, bootstrap, backup/restore (written; partly verified)
+- 3 Dockerfiles (platform, api, dashboard), docker-compose.yml (10 services incl. tools profile, 2 networks,
+  6 volumes, 14 file secrets, healthchecks, loopback ports), Postgres init for the Airflow DB, airflow-init.
+- `docker compose config` validates; images pinned by digest, Temurin JRE and jars by SHA-256 (docs/deployment.md).
+- `scripts/bootstrap.py` (prerequisites, secrets never printed, --rotate-api-keys), `scripts/wait_ready.py`,
+  `scripts/demo.py` (5 scenarios with assertions, docker or local runner), Makefile.
+- `healthlake scenario-batch` builds the quarantine/extend/invalid demo batches from the original nord batch.
+- Demo scenarios verified with the local runner on a fresh database: happy-path, quarantine, idempotent-replay,
+  blocked-publication, recovery all pass.
+- Backup/restore verified with the local runner (docs/restore-report.md): hashes, Bronze re-hash, reconciliation,
+  API smoke test, refusal of a corrupted backup and of a non-empty target. Roles dumped without passwords.
+- CI workflow: lint/type/catalogue, pip-audit per lockfile, gitleaks, tests on PostgreSQL 17 service, Airflow,
+  dashboard, e2e with compose + demo + backup/restore + Trivy; actions pinned by SHA, `contents: read`.
+  Run locally: pip-audit (no known vulnerability in app, dbt, dashboard locks), gitleaks on git history (no leak).
+- Bugs found while writing scenarios and fixed: a scenario derived from a blocked batch; adapter-rejected rows
+  produced 3 extra validation issues on their stub resource.
+- Not verified: image builds, compose up, Airflow in containers, PostgreSQL 17, the docker runner of demo/backup.
 
 ## Tests (all run, all pass): 79 (app venv) + 12 (Airflow venv) + 10 (dashboard venv)
 - Airflow venv: 12 DAG tests (import without network/DB, task contract, single leaf, retries, pools, params,
