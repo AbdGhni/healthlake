@@ -1,0 +1,9 @@
+pydantic<3,>=2.14
+sqlalchemy<2.2,>=2.1
+psycopg[binary]<3.4,>=3.3
+fastapi<0.144,>=0.143
+uvicorn<0.55,>=0.54
+httpx<0.29,>=0.28
+polars<2.1,>=2.0
+pyarrow<27,>=26
+prometheus-client<0.27,>=0.26

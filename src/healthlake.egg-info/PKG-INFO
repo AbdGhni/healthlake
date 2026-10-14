@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: healthlake
+Version: 0.1.0
+Summary: Synthetic healthcare data engineering demonstration (FHIR R4, PostgreSQL, dbt, Airflow, FastAPI).
+License-Expression: Apache-2.0
+Requires-Python: <3.13,>=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: pydantic<3,>=2.14
+Requires-Dist: sqlalchemy<2.2,>=2.1
+Requires-Dist: psycopg[binary]<3.4,>=3.3
+Requires-Dist: fastapi<0.144,>=0.143
+Requires-Dist: uvicorn<0.55,>=0.54
+Requires-Dist: httpx<0.29,>=0.28
+Requires-Dist: polars<2.1,>=2.0
+Requires-Dist: pyarrow<27,>=26
+Requires-Dist: prometheus-client<0.27,>=0.26

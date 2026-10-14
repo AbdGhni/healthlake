@@ -1,0 +1,31 @@
+{
+  "verified_on": "2026-10-14",
+  "java": {
+    "target_runtime": "OpenJDK 17 (Debian package in the Airflow image)",
+    "tested_runtime": "OpenJDK 21.0.12 in the build sandbox",
+    "note": "Java 17 execution is not verified in the sandbox; see docs/compatibility.md"
+  },
+  "artifacts": {
+    "synthea": {
+      "version": "4.0.0",
+      "url": "https://github.com/synthetichealth/synthea/releases/download/v4.0.0/synthea-with-dependencies.jar",
+      "sha256": "ed43c20ad40ba5c3bc724503a5af032715fe3c491620b766148e7c2361e6ecc1",
+      "size_bytes": 201164144
+    },
+    "hl7_validator_cli": {
+      "version": "7.0.1",
+      "url": "https://github.com/hapifhir/org.hl7.fhir.core/releases/download/7.0.1/validator_cli.jar",
+      "sha256": "1178b6a3a3fe98d9cd9545cadee505274967332466001d857e4d8bed7138a5bc",
+      "size_bytes": 203945243
+    }
+  },
+  "fhir_packages": {
+    "hl7.fhir.r4.core": "4.0.1",
+    "note": "the validator also caches terminology and extension packages on first run; the image pre-loads them so validation runs offline"
+  },
+  "docker_images": {
+    "status": "digests not resolved: no Docker daemon in the build sandbox",
+    "pending": ["postgres:17", "apache/airflow:3.3.2-python3.12", "python:3.12-slim-bookworm"]
+  },
+  "python_lock_files": ["requirements/app.lock", "requirements/dbt.lock", "requirements/dashboard.lock", "requirements/dev.lock"]
+}
