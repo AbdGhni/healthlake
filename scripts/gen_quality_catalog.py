@@ -24,8 +24,10 @@ def render() -> str:
     ]
     for c in cat["checks"]:
         thr = "" if c.get("threshold") is None else str(c["threshold"])
-        lines.append(f"| `{c['id']}` | {c['category']} | {c['scope']} | {c['severity']} | "
-                     f"{'yes' if c['blocking'] else 'no'} | {thr} | {c['description']} | {c['implementation']} |")
+        lines.append(
+            f"| `{c['id']}` | {c['category']} | {c['scope']} | {c['severity']} | "
+            f"{'yes' if c['blocking'] else 'no'} | {thr} | {c['description']} | {c['implementation']} |"
+        )
     lines += [
         "",
         "## Reconciliation",
@@ -42,9 +44,11 @@ def render() -> str:
         "",
         "## Terminology (what is and is not checked)",
         "",
-        "- Checked on every resource: R4 required value sets used by HealthLake (gender, statuses, intent, clinical status).",
+        "- Checked on every resource: R4 required value sets used by HealthLake"
+        " (gender, statuses, intent, clinical status).",
         "- Measured per release: share of codings whose system URI is one of the known systems below.",
-        "- Sample audit: the HL7 validator runs offline (`-tx n/a`), so it cannot validate SNOMED CT, LOINC or RxNorm codes.",
+        "- Sample audit: the HL7 validator runs offline (`-tx n/a`),"
+        " so it cannot validate SNOMED CT, LOINC or RxNorm codes.",
         "- Not checked: existence of a code in its code system, display text correctness, concept status.",
         "",
         "Known systems: " + ", ".join(f"`{s}`" for s in cat["known_code_systems"]),

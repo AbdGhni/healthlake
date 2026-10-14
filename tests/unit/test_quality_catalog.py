@@ -54,3 +54,8 @@ def test_redaction() -> None:
 
     s = redact("connection failed: host=x user=u password=s3cr3t dbname=d; url postgresql://u:p4ss@h/db")
     assert "s3cr3t" not in s and "p4ss" not in s and "password=***" in s
+
+
+def test_openapi_export_is_up_to_date() -> None:
+    res = subprocess.run([sys.executable, str(ROOT / "scripts" / "export_openapi.py"), "--check"], check=False)
+    assert res.returncode == 0, "run scripts/export_openapi.py"

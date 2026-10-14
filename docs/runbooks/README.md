@@ -20,3 +20,4 @@ Conventions:
 | `dbt_failed`, `dbt_unavailable`, dbt tests failing | [dbt-failure.md](dbt-failure.md) |
 | Release not activated, `release_gate_failed` | [blocked-publication.md](blocked-publication.md) |
 | A process or container died mid-run | [crash-recovery.md](crash-recovery.md) |
+| API down, 401/410/503 | [api-unavailable.md](api-unavailable.md) |

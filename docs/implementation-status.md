@@ -1,6 +1,6 @@
 # Implementation status
 
-Last update: 2026-10-14, end of phase 8.
+Last update: 2026-10-14, end of phase 9.
 
 ## Phases 0-1 (done, verified)
 Plan, locked dependencies, Synthea 4.0.0 and HL7 validator 7.0.1 pinned, migrations, roles, CLI skeleton.
@@ -66,7 +66,16 @@ Plan, locked dependencies, Synthea 4.0.0 and HL7 validator 7.0.1 pinned, migrati
 - Bug found and fixed: replaying a batch after its work files were cleaned re-ran adaptation and temporarily
   moved the processing status back; steps now decide idempotence from the database first (tested).
 
-## Tests (all run, all pass): 76 (app venv) + 12 (Airflow venv)
+## Phase 9: API (done, verified)
+- FastAPI app `healthlake.api.app` (13 paths, OpenAPI exported to docs/api/openapi.json, contract in docs/api/README.md).
+- X-API-Key with hashed storage and constant-time comparison, scopes `read`/`ops`; `healthlake api-keys`.
+- Keyset pagination with HMAC-signed cursors pinning release, endpoint and filters; default 50, max 200.
+- 401/403/404/410/422/503 behaviours tested; read-only DB sessions with statement timeout; `/metrics` with API
+  latency histogram and request counter by route template.
+- Live check under uvicorn (2 workers) on the published test profile: readiness 200, no key 401, summary
+  10 patients / 236 encounters / 1 447 observations, `/docs` 200.
+
+## Tests (all run, all pass): 80 (app venv) + 12 (Airflow venv)
 - Airflow venv: 12 DAG tests (import without network/DB, task contract, single leaf, retries, pools, params,
   exit-code mapping, deterministic run ids).
 - unit 21, integration 35 (incl. 7 release tests with real dbt builds: happy path, rebuild idempotence, switch,

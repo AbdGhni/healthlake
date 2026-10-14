@@ -188,6 +188,15 @@ def _gc_work(a: argparse.Namespace) -> dict[str, Any]:
     return {"removed": removed, "freed_bytes": freed}
 
 
+def _api_keys(a: argparse.Namespace) -> dict[str, Any]:
+    from pathlib import Path
+
+    from healthlake.api.security import generate_keys
+
+    clients = generate_keys(Path(a.hashed_out), Path(a.plain_out))
+    return {"clients": clients, "hashed_file": a.hashed_out, "plain_file": a.plain_out, "printed_secrets": False}
+
+
 def _quality_gate(a: argparse.Namespace) -> dict[str, Any]:
     from healthlake.release.gate import quality_gate
 
@@ -270,6 +279,10 @@ def build_parser() -> argparse.ArgumentParser:
     gc = sub.add_parser("gc-work", help="delete work files of loaded or blocked processings")
     gc.add_argument("--older-than-hours", type=float, default=24.0)
     gc.set_defaults(func=_gc_work)
+    ak = sub.add_parser("api-keys", help="generate API keys (hashed file for the API, plain file for the operator)")
+    ak.add_argument("--hashed-out", required=True)
+    ak.add_argument("--plain-out", required=True)
+    ak.set_defaults(func=_api_keys)
     qg = sub.add_parser("quality-gate", help="evaluate a built release")
     qg.add_argument("--release-id", type=_hex64, required=True)
     qg.set_defaults(func=_quality_gate)

@@ -19,3 +19,6 @@
 - 2026-10-14: Quality catalogue is the source of truth (config/quality-catalog.json); docs generated; code/catalogue consistency tested.
 - 2026-10-14: Plausibility ranges flag (warning), never reject or convert values.
 - 2026-10-14: Step idempotence is decided from the processing status in the database before looking at work files.
+- 2026-10-14: API keys stored as SHA-256 hashes; plain keys only in a 0600 operator file. Scopes read/ops; /metrics requires ops.
+- 2026-10-14: Keyset pagination with HMAC-signed cursors (release, endpoint, filter hash, last key) instead of offsets.
+- 2026-10-14: Aggregated views exposed through `group_by` on existing endpoints (encounters?group_by=day, observations?group_by=code) rather than new paths.

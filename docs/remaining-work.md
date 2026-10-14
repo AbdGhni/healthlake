@@ -6,4 +6,5 @@ Next: phase 7 (Airflow DAGs and crash points 4-7), 8 (quality catalogue, metrics
 Known gaps to address:
 - Medication from earlier batches is not used to code MedicationRequest.medicationReference.
 - Unverified on this machine: PG17, Java 17, Docker images.
-- Runbooks still to write with their components: API unavailable (9), stale dashboard (10), restore (11).
+- Runbooks still to write with their components: stale dashboard (10), restore (11).
+- `scripts/bootstrap.py --rotate-api-keys` is referenced by docs/runbooks/api-unavailable.md and must be implemented in phase 11.
