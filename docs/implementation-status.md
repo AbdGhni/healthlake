@@ -1,6 +1,6 @@
 # Implementation status
 
-Last update: 2026-10-14, end of phase 5.
+Last update: 2026-10-14, end of phase 6.
 
 ## Phases 0-1 (done, verified)
 Plan, locked dependencies, Synthea 4.0.0 and HL7 validator 7.0.1 pinned, migrations, roles, CLI skeleton.
@@ -34,8 +34,18 @@ Plan, locked dependencies, Synthea 4.0.0 and HL7 validator 7.0.1 pinned, migrati
 - Demo profile pipeline (Bronze to Silver, HL7 audit included), sandbox: central 113 s (87 326 resources),
   nord 43 s (32 278), sud 54 s (40 507). Peak RSS 1.8 GB (includes the Java validator).
 
-## Tests (all run, all pass): 56
-- unit 21, integration 28 (migrations + section 19.1 data cases), recovery 5 (crash points 1-3, hard kill,
+## Phase 6: snapshot, dbt, gate, publication (done, verified)
+- dbt project (dbt-core 1.12.6, dbt-postgres 1.11.0): 9 staging views, 2 intermediate views, 5 dimensions,
+  6 facts (incl. bridge), 4 aggregates, 2 seeds, 1 analysis, 91 data tests (generic + 7 singular).
+- Commands `build-release`, `quality-gate`, `publish`; retention and purge. ADR 0004.
+- Demo profile (328 patients, 160 111 snapshot members): build 26 s, gate 0.3 s, publish 0.2 s; 91/91 dbt tests pass.
+  Gold rows: 12 206 encounters, 85 483 observations, 38 355 components, 7 493 conditions, 8 670 prescriptions.
+- dbt tests caught two real bugs during development (ambiguous column in dim_code; dim_date bounds computed
+  in the session time zone instead of UTC), both fixed.
+
+## Tests (all run, all pass): 63
+- unit 21, integration 35 (incl. 7 release tests with real dbt builds: happy path, rebuild idempotence, switch,
+  failed gate keeps the active release, blocked processing, crash points 4-6, retention), earlier integration 28 (migrations + section 19.1 data cases), recovery 5 (crash points 1-3, hard kill,
   concurrent attempts), fhir 1 (real HL7 validator), config/CLI 3.
 - ruff, ruff format, mypy --strict: clean.
 

@@ -1,0 +1,14 @@
+version: 2
+seeds:
+  - name: encounter_class_category
+    description: Approved mapping of HL7 v3 ActCode encounter classes to reporting categories.
+    columns:
+      - name: class_code
+        data_tests: [unique, not_null]
+  - name: unit_conversion
+    description: >
+      Approved linear unit conversions (value * factor + offset_value) to a canonical unit per quantity.
+      Only these conversions are applied; any other unit stays unconverted (canonical value NULL).
+    columns:
+      - name: from_unit_code
+        data_tests: [unique, not_null]

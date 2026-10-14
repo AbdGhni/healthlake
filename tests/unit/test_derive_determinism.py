@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from tests.fixtures import factory as f
-
 from healthlake.generation.derive import extract_rows, to_csv_files, to_json_files
+from tests.fixtures import factory as f
 
 
 def test_derivation_is_deterministic_and_drops_names() -> None:

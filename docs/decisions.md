@@ -11,3 +11,6 @@
 - 2026-10-14: Work files are NDJSON written to a unique temp name then renamed; a `<step>.done.json` marker makes steps re-runnable after a crash.
 - 2026-10-14: resource_version_id excludes the revision, so unchanged content across revisions is stored once; `silver.processing_resource.source_revision` carries the business order used by snapshots.
 - 2026-10-14: Medication codes for `medicationReference` are resolved from Medication resources of the same processing or from contained resources; Medication from earlier batches is not looked up (documented limit).
+- 2026-10-14: Release id includes a fingerprint of the dbt project and build options (ADR 0004).
+- 2026-10-14: The release gate runs as the publish role (it must read the candidate schema owned by hl_dbt).
+- 2026-10-14: The API role reads only the 15 Gold marts; staging views (which select from Silver) are not granted.

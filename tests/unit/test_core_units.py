@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 
 import pytest
-from tests.fixtures import factory as f
 
 from healthlake.errors import ConflictError, ContractError
 from healthlake.fhirtypes import parse_date, parse_datetime
@@ -15,6 +14,7 @@ from healthlake.ids import batch_id, canonical_json, entity_id, release_schema
 from healthlake.ingestion.manifest import parse_manifest, scan_batch_dir
 from healthlake.ingestion.rawstore import IntegrityError, LocalRawStore
 from healthlake.normalization.references import parse_reference
+from tests.fixtures import factory as f
 
 
 def test_canonical_json_is_order_independent() -> None:

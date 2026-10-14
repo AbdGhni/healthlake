@@ -1,0 +1,31 @@
+name: healthlake
+version: "0.1.0"
+config-version: 2
+profile: healthlake
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+analysis-paths: ["analyses"]
+target-path: "target"
+clean-targets: ["target", "logs"]
+
+vars:
+  snapshot_id: "unset"
+  release_id: "unset"
+  inject_gate_failure: false
+
+models:
+  healthlake:
+    +persist_docs: {relation: true, columns: true}
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: view
+    marts:
+      +materialized: table
+
+seeds:
+  healthlake:
+    +schema: null

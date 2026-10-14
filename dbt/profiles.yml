@@ -1,0 +1,15 @@
+# Credentials come from the environment set by `healthlake build-release` (never committed).
+healthlake:
+  target: release
+  outputs:
+    release:
+      type: postgres
+      host: "{{ env_var('DBT_HOST') }}"
+      port: "{{ env_var('DBT_PORT') | int }}"
+      user: "{{ env_var('DBT_USER') }}"
+      password: "{{ env_var('DBT_PASSWORD', '') }}"
+      dbname: "{{ env_var('DBT_DBNAME') }}"
+      schema: "{{ env_var('DBT_SCHEMA') }}"
+      role: hl_dbt
+      threads: 4
+      connect_timeout: 10

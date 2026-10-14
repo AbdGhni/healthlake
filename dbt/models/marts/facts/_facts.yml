@@ -1,0 +1,112 @@
+version: 2
+models:
+  - name: fct_encounter
+    description: "Grain: one encounter identity. Key: encounter_key."
+    columns:
+      - {name: encounter_key, description: "Entity id.", data_tests: [unique, not_null]}
+      - name: patient_key
+        description: "Patient of the encounter."
+        data_tests:
+          - not_null
+          - relationships: {arguments: {to: ref('dim_patient'), field: patient_key}}
+      - name: organization_key
+        description: "Service provider, when resolved."
+        data_tests:
+          - relationships: {arguments: {to: ref('dim_organization'), field: organization_key}}
+      - {name: source_id, description: "Source system."}
+      - {name: status, description: "FHIR Encounter.status."}
+      - {name: class_code, description: "HL7 v3 ActCode class."}
+      - name: encounter_category
+        description: "Reporting category from seed encounter_class_category; 'other' when unmapped."
+        data_tests:
+          - accepted_values: {arguments: {values: [ambulatory, inpatient, emergency, observation, virtual, home_health, other]}}
+      - name: type_code_key
+        description: "Encounter type code."
+        data_tests:
+          - relationships: {arguments: {to: ref('dim_code'), field: code_key}}
+      - {name: start_at, description: "Period start, UTC."}
+      - {name: end_at, description: "Period end, UTC; NULL when open."}
+      - name: start_date_key
+        description: "Start date (UTC)."
+        data_tests:
+          - relationships: {arguments: {to: ref('dim_date'), field: date_key}}
+      - {name: duration_minutes, description: "end - start in minutes; NULL without end."}
+      - {name: resource_version_id, description: "Provenance.", data_tests: [not_null]}
+  - name: fct_condition
+    description: "Grain: one condition identity."
+    columns:
+      - {name: condition_key, description: "Entity id.", data_tests: [unique, not_null]}
+      - name: patient_key
+        description: "Patient."
+        data_tests: [not_null, {relationships: {arguments: {to: ref('dim_patient'), field: patient_key}}}]
+      - name: encounter_key
+        description: "Encounter, when present."
+        data_tests: [{relationships: {arguments: {to: ref('fct_encounter'), field: encounter_key}}}]
+      - name: code_key
+        description: "Diagnosis code."
+        data_tests: [not_null, {relationships: {arguments: {to: ref('dim_code'), field: code_key}}}]
+      - {name: onset_raw, description: "Original onset text."}
+      - {name: onset_precision, description: "year, month, day or second."}
+      - {name: onset_at, description: "Onset instant UTC, only when the source has a time."}
+      - {name: resource_version_id, description: "Provenance.", data_tests: [not_null]}
+  - name: fct_observation
+    description: "Grain: one observation identity. value_type tells which value column is filled."
+    columns:
+      - {name: observation_key, description: "Entity id.", data_tests: [unique, not_null]}
+      - name: patient_key
+        description: "Patient."
+        data_tests: [not_null, {relationships: {arguments: {to: ref('dim_patient'), field: patient_key}}}]
+      - name: encounter_key
+        description: "Encounter, when present."
+        data_tests: [{relationships: {arguments: {to: ref('fct_encounter'), field: encounter_key}}}]
+      - name: code_key
+        description: "Observation code."
+        data_tests: [not_null, {relationships: {arguments: {to: ref('dim_code'), field: code_key}}}]
+      - name: value_type
+        description: "Quantity, CodeableConcept, string, boolean, integer, dateTime, time, Period, none."
+        data_tests:
+          - accepted_values: {arguments: {values: [Quantity, CodeableConcept, string, boolean, integer, dateTime, time, Period, none]}}
+      - {name: value_numeric, description: "Numeric value as received."}
+      - {name: value_canonical, description: "Converted value, only via the approved unit_conversion seed."}
+      - {name: data_absent_reason, description: "FHIR dataAbsentReason code, kept as received."}
+      - {name: component_count, description: "Number of components (see fct_observation_component)."}
+      - {name: resource_version_id, description: "Provenance.", data_tests: [not_null]}
+  - name: fct_observation_component
+    description: "Grain: one component (observation_key, ordinal)."
+    data_tests:
+      - unique_combination: {arguments: {columns: [observation_key, ordinal]}}
+    columns:
+      - name: observation_key
+        description: "Parent observation."
+        data_tests: [not_null, {relationships: {arguments: {to: ref('fct_observation'), field: observation_key}}}]
+      - {name: ordinal, description: "Position in Observation.component."}
+      - name: code_key
+        description: "Component code."
+        data_tests: [not_null, {relationships: {arguments: {to: ref('dim_code'), field: code_key}}}]
+  - name: fct_medication_request
+    description: "Grain: one medication request identity."
+    columns:
+      - {name: medication_request_key, description: "Entity id.", data_tests: [unique, not_null]}
+      - name: patient_key
+        description: "Patient."
+        data_tests: [not_null, {relationships: {arguments: {to: ref('dim_patient'), field: patient_key}}}]
+      - name: encounter_key
+        description: "Encounter, when present."
+        data_tests: [{relationships: {arguments: {to: ref('fct_encounter'), field: encounter_key}}}]
+      - name: practitioner_key
+        description: "Requester when it is a Practitioner."
+        data_tests: [{relationships: {arguments: {to: ref('dim_practitioner'), field: practitioner_key}}}]
+      - name: medication_code_key
+        description: "Medication code (RxNorm in Synthea data)."
+        data_tests: [{relationships: {arguments: {to: ref('dim_code'), field: code_key}}}]
+  - name: bridge_encounter_practitioner
+    description: "Grain: one practitioner participation (encounter_key, ordinal)."
+    data_tests:
+      - unique_combination: {arguments: {columns: [encounter_key, ordinal]}}
+    columns:
+      - name: encounter_key
+        description: "Encounter."
+        data_tests: [not_null, {relationships: {arguments: {to: ref('fct_encounter'), field: encounter_key}}}]
+      - name: practitioner_key
+        description: "Practitioner."
+        data_tests: [not_null, {relationships: {arguments: {to: ref('dim_practitioner'), field: practitioner_key}}}]

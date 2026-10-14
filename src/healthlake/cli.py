@@ -107,6 +107,24 @@ def _ingest(a: argparse.Namespace) -> dict[str, Any]:
     return ingest_batch(a.batch_id, a.run_id)
 
 
+def _build_release(a: argparse.Namespace) -> dict[str, Any]:
+    from healthlake.release.build import build_release
+
+    return build_release(a.processing_id)
+
+
+def _quality_gate(a: argparse.Namespace) -> dict[str, Any]:
+    from healthlake.release.gate import quality_gate
+
+    return quality_gate(a.release_id)
+
+
+def _publish(a: argparse.Namespace) -> dict[str, Any]:
+    from healthlake.release.publish import publish
+
+    return publish(a.release_id)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="healthlake", description="HealthLake pipeline CLI")
     parser.add_argument("--version", action="version", version=__version__)
@@ -150,6 +168,15 @@ def build_parser() -> argparse.ArgumentParser:
     ig.add_argument("--batch-id", type=_hex64, required=True)
     ig.add_argument("--run-id", default=None)
     ig.set_defaults(func=_ingest)
+    br = sub.add_parser("build-release", help="snapshot all loaded processings and build Gold with dbt")
+    br.add_argument("--processing-id", type=_hex64, default=None, help="require this processing in the release")
+    br.set_defaults(func=_build_release)
+    qg = sub.add_parser("quality-gate", help="evaluate a built release")
+    qg.add_argument("--release-id", type=_hex64, required=True)
+    qg.set_defaults(func=_quality_gate)
+    pb = sub.add_parser("publish", help="atomically activate a release that passed its gate")
+    pb.add_argument("--release-id", type=_hex64, required=True)
+    pb.set_defaults(func=_publish)
     return parser
 
 

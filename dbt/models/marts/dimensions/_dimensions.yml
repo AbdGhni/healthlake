@@ -1,0 +1,47 @@
+version: 2
+models:
+  - name: dim_patient
+    description: "Grain: one synthetic patient identity per source namespace. No names, no address, birth year only."
+    columns:
+      - {name: patient_key, description: "UUIDv5 entity id (source namespace).", data_tests: [unique, not_null]}
+      - {name: source_id, description: "Source system.", data_tests: [not_null]}
+      - {name: gender, description: "FHIR AdministrativeGender."}
+      - {name: birth_year, description: "Year of birth; NULL when birth date absent."}
+      - {name: birth_date_precision, description: "Precision of the original birthDate (year, month, day)."}
+      - {name: deceased, description: "True when deceased[x] indicates death."}
+      - {name: organization_key, description: "Managing organization, when resolved."}
+      - {name: resource_version_id, description: "Provenance: Silver version used by this release.", data_tests: [not_null]}
+  - name: dim_organization
+    description: "Grain: one organization identity."
+    columns:
+      - {name: organization_key, description: "Entity id.", data_tests: [unique, not_null]}
+      - {name: source_id, description: "Source system."}
+      - {name: name, description: "Fictional organization name."}
+      - {name: org_type_code, description: "Organization type code."}
+      - {name: active, description: "Active flag."}
+      - {name: resource_version_id, description: "Provenance."}
+  - name: dim_practitioner
+    description: "Grain: one practitioner identity. No names."
+    columns:
+      - {name: practitioner_key, description: "Entity id.", data_tests: [unique, not_null]}
+      - {name: source_id, description: "Source system."}
+      - {name: gender, description: "Gender."}
+      - {name: active, description: "Active flag."}
+      - {name: resource_version_id, description: "Provenance."}
+  - name: dim_code
+    description: "Grain: one (system, code) used by a fact of the release. Display is the first display seen."
+    columns:
+      - {name: code_key, description: "md5(system|code).", data_tests: [unique, not_null]}
+      - {name: system, description: "Code system URI."}
+      - {name: code, description: "Code.", data_tests: [not_null]}
+      - {name: display, description: "Display text (from the data, not from a terminology server)."}
+      - {name: usages, description: "Where the code is used."}
+      - {name: system_label, description: "SNOMED CT, LOINC, RxNorm, other, no system."}
+  - name: dim_date
+    description: "Grain: one UTC calendar day between first and last clinical event."
+    columns:
+      - {name: date_key, description: "YYYYMMDD.", data_tests: [unique, not_null]}
+      - {name: calendar_date, description: "Date."}
+      - {name: year, description: "Year."}
+      - {name: month, description: "Month."}
+      - {name: iso_weekday, description: "1 = Monday."}

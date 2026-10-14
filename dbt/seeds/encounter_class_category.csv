@@ -1,0 +1,12 @@
+class_code,encounter_category,description
+AMB,ambulatory,Ambulatory (outpatient) encounter
+IMP,inpatient,Inpatient encounter (hospitalisation)
+ACUTE,inpatient,Inpatient acute
+NONAC,inpatient,Inpatient non-acute
+EMER,emergency,Emergency
+OBSENC,observation,Observation encounter
+VR,virtual,Virtual encounter
+HH,home_health,Home health
+SS,ambulatory,Short stay
+PRENC,ambulatory,Pre-admission
+FLD,other,Field

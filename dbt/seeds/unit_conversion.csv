@@ -1,0 +1,8 @@
+from_unit_code,to_unit_code,factor,offset_value,approved_by,note
+kg,kg,1,0,healthlake-demo-policy,identity
+[lb_av],kg,0.45359237,0,healthlake-demo-policy,avoirdupois pound
+cm,cm,1,0,healthlake-demo-policy,identity
+[in_i],cm,2.54,0,healthlake-demo-policy,international inch
+Cel,Cel,1,0,healthlake-demo-policy,identity
+[degF],Cel,0.5555555555555556,-17.77777777777778,healthlake-demo-policy,(F-32)*5/9
+mg/dL,mg/dL,1,0,healthlake-demo-policy,identity

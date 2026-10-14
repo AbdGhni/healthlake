@@ -66,8 +66,9 @@ def resource_version_id(entity: uuid.UUID, resource_sha256: str, mapping_version
     return sha256_json({"entity_id": str(entity), "resource_sha256": resource_sha256, "mapping": mapping_version})
 
 
-def release_id(processing_ids: Iterable[str], code_version: str = CODE_VERSION) -> str:
-    return sha256_json({"processings": sorted(set(processing_ids)), "code": code_version})
+def release_id(processing_ids: Iterable[str], code_version: str = CODE_VERSION, build: str = "") -> str:
+    """build: fingerprint of the Gold build (dbt project content and build options)."""
+    return sha256_json({"processings": sorted(set(processing_ids)), "code": code_version, "build": build})
 
 
 def release_schema(release: str) -> str:

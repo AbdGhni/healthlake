@@ -1,0 +1,22 @@
+version: 2
+models:
+  - name: agg_activity_daily
+    description: "Grain: (activity_date, source_id, encounter_category). Sum of encounters = encounters with a start."
+    data_tests:
+      - unique_combination: {arguments: {columns: [activity_date, source_id, encounter_category]}}
+    columns:
+      - {name: encounters, description: "Encounters starting that day (UTC)."}
+      - {name: distinct_patients, description: "Distinct patients with an encounter that day; not additive across days."}
+  - name: agg_diagnosis
+    description: "Grain: one diagnosis code. conditions = rows of fct_condition with that code."
+    columns:
+      - {name: code_key, data_tests: [unique, not_null]}
+      - {name: distinct_patients, description: "Distinct patients with the code; not additive across codes."}
+  - name: agg_observation_volume
+    description: "Grain: (code_key, value_type, value_unit_code). min/mean/max never mix codes or units."
+    data_tests:
+      - unique_combination: {arguments: {columns: [code_key, value_type, value_unit_code]}}
+  - name: agg_quality
+    description: "Grain: one processing in the release, with reconciliation counters and issue counts."
+    columns:
+      - {name: processing_id, data_tests: [unique, not_null]}

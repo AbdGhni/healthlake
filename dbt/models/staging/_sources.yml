@@ -1,0 +1,26 @@
+version: 2
+sources:
+  - name: silver
+    schema: silver
+    description: Silver layer, append-only versions and projections (see docs/data-dictionary.md).
+    tables:
+      - {name: snapshot_member, description: "Release snapshot: one resource version per identity."}
+      - {name: patient}
+      - {name: encounter}
+      - {name: encounter_participant}
+      - {name: condition}
+      - {name: observation}
+      - {name: observation_component}
+      - {name: medication_request}
+      - {name: organization}
+      - {name: practitioner}
+  - name: ctl
+    schema: ctl
+    tables:
+      - {name: release_processing}
+      - {name: processing}
+      - {name: batch}
+  - name: quality
+    schema: quality
+    tables:
+      - {name: issue}
