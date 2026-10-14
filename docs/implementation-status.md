@@ -75,7 +75,7 @@ Plan, locked dependencies, Synthea 4.0.0 and HL7 validator 7.0.1 pinned, migrati
 - Live check under uvicorn (2 workers) on the published test profile: readiness 200, no key 401, summary
   10 patients / 236 encounters / 1 447 observations, `/docs` 200.
 
-## Tests (all run, all pass): 80 (app venv) + 12 (Airflow venv)
+## Tests (all run, all pass): 79 (app venv) + 12 (Airflow venv)
 - Airflow venv: 12 DAG tests (import without network/DB, task contract, single leaf, retries, pools, params,
   exit-code mapping, deterministic run ids).
 - unit 21, integration 35 (incl. 7 release tests with real dbt builds: happy path, rebuild idempotence, switch,
