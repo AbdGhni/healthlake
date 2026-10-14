@@ -56,3 +56,27 @@ def initialized_db(fresh_db: dict[str, str]) -> dict[str, str]:
 
     init_database()
     return fresh_db
+
+
+@pytest.fixture
+def lake(initialized_db: dict[str, str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
+    """Initialized DB + empty landing/lake/work dirs + sources registered. HL7 audit disabled for speed."""
+    dirs = {k: tmp_path / k for k in ("landing", "lake", "work", "artifacts")}
+    for k, p in dirs.items():
+        p.mkdir()
+        monkeypatch.setenv(f"HEALTHLAKE_{k.upper()}_DIR", str(p))
+    monkeypatch.delenv("HEALTHLAKE_HL7_VALIDATOR_JAR", raising=False)
+    from healthlake.db import connect
+    from healthlake.ingestion.registry import ensure_sources
+    from healthlake.pipelines.runner import sources_config
+
+    with connect("ingest", autocommit=True) as conn:
+        ensure_sources(conn, sources_config()["sources"])
+    return dirs
+
+
+def q(sql_text: str, *params: object) -> list[tuple[object, ...]]:
+    from healthlake.db import connect
+
+    with connect("owner") as conn:
+        return list(conn.execute(sql_text, params).fetchall())

@@ -81,7 +81,7 @@ INSERT INTO ctl.active_release (singleton) VALUES (true);
 
 CREATE TABLE ctl.event (
   event_id       bigserial PRIMARY KEY,
-  occurred_at    timestamptz NOT NULL DEFAULT now(),
+  occurred_at    timestamptz NOT NULL DEFAULT clock_timestamp(),
   event          text NOT NULL,
   level          text NOT NULL DEFAULT 'info',
   batch_id       text,

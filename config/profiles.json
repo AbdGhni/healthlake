@@ -1,0 +1,12 @@
+{
+  "reference_date": "2026-01-01",
+  "simulation_end_date": "2026-01-01",
+  "timezone": "UTC",
+  "years_of_history": 5,
+  "thread_pool_size": 1,
+  "profiles": {
+    "test": {"population": 3},
+    "demo": {"population": 100},
+    "extended": {"population": 1000}
+  }
+}

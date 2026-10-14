@@ -6,7 +6,7 @@ CREATE TABLE silver.resource_version (
   source_id           text NOT NULL REFERENCES ctl.source,
   resource_type       text NOT NULL,
   source_resource_id  text NOT NULL,
-  source_revision     bigint NOT NULL,
+  first_source_revision bigint NOT NULL,  -- revision where this exact content first appeared
   resource_sha256     text NOT NULL,
   mapping_version     text NOT NULL,
   meta_version_id     text,                -- kept as text, never compared numerically
@@ -15,9 +15,7 @@ CREATE TABLE silver.resource_version (
   first_processing_id text NOT NULL REFERENCES ctl.processing,
   created_at          timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX resource_version_entity_idx ON silver.resource_version (entity_id, source_revision DESC);
-CREATE UNIQUE INDEX resource_version_identity_rev
-  ON silver.resource_version (entity_id, source_revision, mapping_version);
+CREATE INDEX resource_version_entity_idx ON silver.resource_version (entity_id);
 
 CREATE TABLE silver.resource_lineage (
   resource_version_id text NOT NULL REFERENCES silver.resource_version,
@@ -31,8 +29,10 @@ CREATE TABLE silver.processing_resource (
   processing_id       text NOT NULL REFERENCES ctl.processing,
   entity_id           uuid NOT NULL,
   resource_version_id text NOT NULL REFERENCES silver.resource_version,
+  source_revision     bigint NOT NULL,     -- business order used by snapshots
   PRIMARY KEY (processing_id, entity_id)
 );
+CREATE INDEX processing_resource_entity_idx ON silver.processing_resource (entity_id, source_revision DESC);
 
 CREATE TABLE silver.reference (
   resource_version_id text NOT NULL REFERENCES silver.resource_version,
@@ -45,6 +45,18 @@ CREATE TABLE silver.reference (
   PRIMARY KEY (resource_version_id, path)
 );
 CREATE INDEX reference_target_idx ON silver.reference (target_entity_id);
+
+CREATE TABLE silver.identifier (
+  resource_version_id text NOT NULL REFERENCES silver.resource_version,
+  ordinal             integer NOT NULL,
+  entity_id           uuid NOT NULL,
+  source_id           text NOT NULL,       -- identifiers resolve only inside their source namespace
+  resource_type       text NOT NULL,
+  system              text NOT NULL,
+  value               text NOT NULL,
+  PRIMARY KEY (resource_version_id, ordinal)
+);
+CREATE INDEX identifier_lookup_idx ON silver.identifier (source_id, resource_type, system, value);
 
 CREATE TABLE silver.coding (
   resource_version_id text NOT NULL REFERENCES silver.resource_version,

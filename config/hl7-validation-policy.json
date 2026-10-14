@@ -1,0 +1,12 @@
+{
+  "version": "hl7-policy-1",
+  "sample": {"fhir_bundle_patient_files": 1, "horizon_resources": 300},
+  "reclassify": [
+    {"match": "The extension http://synthetichealth.github.io/synthea/", "severity": "information",
+     "cause_code": "synthea_extension_undefined",
+     "reason": "Synthea's own extensions have no published StructureDefinition"},
+    {"match": "Unable to find a profile match for urn:uuid:", "severity": "warning",
+     "cause_code": "profile_reference_match",
+     "reason": "US Core target-profile checks on bundle references; base R4 reference validity is checked separately"}
+  ]
+}

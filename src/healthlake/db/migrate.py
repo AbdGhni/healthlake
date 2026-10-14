@@ -43,8 +43,6 @@ def apply_migrations(conn: psycopg.Connection, directory: Path = MIGRATIONS_DIR)
                     raise MigrationError(f"migration {path.name} changed after being applied")
                 continue
             conn.execute(body.decode("utf-8"))
-            conn.execute(
-                "INSERT INTO public.healthlake_migration (name, sha256) VALUES (%s, %s)", (path.name, digest)
-            )
+            conn.execute("INSERT INTO public.healthlake_migration (name, sha256) VALUES (%s, %s)", (path.name, digest))
             applied.append(path.name)
     return applied

@@ -37,17 +37,13 @@ def init_database() -> dict[str, object]:
             if not exists:
                 created.append(cfg.user)
             for group in groups:
-                conn.execute(
-                    sql.SQL("GRANT {} TO {}").format(sql.Identifier(group), sql.Identifier(cfg.user))
-                )
+                conn.execute(sql.SQL("GRANT {} TO {}").format(sql.Identifier(group), sql.Identifier(cfg.user)))
         # dbt builds release schemas as hl_dbt; it needs CREATE on the database.
         dbname = db_config("owner").dbname
         conn.execute(sql.SQL("GRANT CREATE, CONNECT ON DATABASE {} TO hl_dbt").format(sql.Identifier(dbname)))
         conn.execute("GRANT SELECT ON public.healthlake_migration TO hl_ingest, hl_ops_read")
         for group in ("hl_ingest", "hl_publish", "hl_api_read", "hl_ops_read"):
             conn.execute(
-                sql.SQL("GRANT CONNECT ON DATABASE {} TO {}").format(
-                    sql.Identifier(dbname), sql.Identifier(group)
-                )
+                sql.SQL("GRANT CONNECT ON DATABASE {} TO {}").format(sql.Identifier(dbname), sql.Identifier(group))
             )
     return {"migrations_applied": applied, "users_created": created}

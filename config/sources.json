@@ -1,0 +1,32 @@
+{
+  "organization": "Reseau Hospitalier Horizon (fictional)",
+  "sources": [
+    {
+      "source_id": "horizon-central",
+      "display_name": "Horizon Central (FHIR R4 export)",
+      "source_format": "fhir-r4-bundle",
+      "schema_version": "fhir-4.0.1",
+      "fhir_base_url": "https://central.horizon.example/fhir/",
+      "synthea": {"seed": 1001, "clinician_seed": 2001, "state": "Massachusetts"}
+    },
+    {
+      "source_id": "horizon-nord",
+      "display_name": "Horizon Nord (business CSV)",
+      "source_format": "horizon-csv-v1",
+      "schema_version": "horizon-csv-v1",
+      "synthea": {"seed": 1002, "clinician_seed": 2002, "state": "Massachusetts"}
+    },
+    {
+      "source_id": "horizon-sud",
+      "display_name": "Horizon Sud (business JSON)",
+      "source_format": "horizon-json-v1",
+      "schema_version": "horizon-json-v1",
+      "synthea": {"seed": 1003, "clinician_seed": 2003, "state": "Massachusetts"}
+    }
+  ],
+  "identity_systems": {
+    "Patient": ["https://github.com/synthetichealth/synthea"],
+    "Practitioner": ["http://hl7.org/fhir/sid/us-npi"],
+    "Organization": ["https://github.com/synthetichealth/synthea"]
+  }
+}

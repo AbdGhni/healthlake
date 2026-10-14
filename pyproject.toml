@@ -28,7 +28,7 @@ healthlake = "healthlake.cli:main"
 where = ["src"]
 
 [tool.ruff]
-line-length = 110
+line-length = 120
 target-version = "py312"
 src = ["src", "tests"]
 
