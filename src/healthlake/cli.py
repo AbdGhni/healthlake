@@ -113,6 +113,39 @@ def _build_release(a: argparse.Namespace) -> dict[str, Any]:
     return build_release(a.processing_id)
 
 
+def _build_snapshot(a: argparse.Namespace) -> dict[str, Any]:
+    from healthlake.release.build import prepare_release
+
+    return prepare_release(a.processing_id)
+
+
+def _dbt_build(a: argparse.Namespace) -> dict[str, Any]:
+    from healthlake.release.build import dbt_build
+
+    return dbt_build(a.release_id)
+
+
+def _dbt_docs(a: argparse.Namespace) -> dict[str, Any]:
+    from healthlake.release.build import dbt_docs
+
+    return dbt_docs(a.release_id)
+
+
+def _report(a: argparse.Namespace) -> dict[str, Any]:
+    from healthlake.pipelines.steps import report_attempt
+
+    return report_attempt(a.attempt_id, a.fail_on_unsuccessful)
+
+
+def _backfill(a: argparse.Namespace) -> dict[str, Any]:
+    from healthlake.pipelines.steps import backfill
+
+    ids = [b.strip() for b in a.batch_list.split(",") if b.strip()]
+    for b in ids:
+        _hex64(b)
+    return backfill(ids)
+
+
 def _quality_gate(a: argparse.Namespace) -> dict[str, Any]:
     from healthlake.release.gate import quality_gate
 
@@ -171,6 +204,23 @@ def build_parser() -> argparse.ArgumentParser:
     br = sub.add_parser("build-release", help="snapshot all loaded processings and build Gold with dbt")
     br.add_argument("--processing-id", type=_hex64, default=None, help="require this processing in the release")
     br.set_defaults(func=_build_release)
+    bs = sub.add_parser("build-snapshot", help="register a release and build its deterministic snapshot")
+    bs.add_argument("--processing-id", type=_hex64, default=None)
+    bs.set_defaults(func=_build_snapshot)
+    for name, fn, help_ in [
+        ("dbt-build", _dbt_build, "dbt build into the candidate schema"),
+        ("dbt-docs", _dbt_docs, "dbt docs and lineage for a built release"),
+    ]:
+        sp = sub.add_parser(name, help=help_)
+        sp.add_argument("--release-id", type=_hex64, required=True)
+        sp.set_defaults(func=fn)
+    rp = sub.add_parser("report", help="write the attempt report (artifacts/reports)")
+    rp.add_argument("--attempt-id", required=True)
+    rp.add_argument("--fail-on-unsuccessful", action="store_true")
+    rp.set_defaults(func=_report)
+    bf = sub.add_parser("backfill", help="ingest a comma-separated list of batch ids in order")
+    bf.add_argument("--batch-list", required=True)
+    bf.set_defaults(func=_backfill)
     qg = sub.add_parser("quality-gate", help="evaluate a built release")
     qg.add_argument("--release-id", type=_hex64, required=True)
     qg.set_defaults(func=_quality_gate)

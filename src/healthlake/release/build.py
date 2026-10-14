@@ -167,7 +167,8 @@ def _git_version() -> str:
         return "unknown"
 
 
-def build_release(must_include: str | None = None) -> dict[str, Any]:
+def prepare_release(must_include: str | None = None) -> dict[str, Any]:
+    """Register the release and build its deterministic snapshot (task build_snapshot)."""
     with connect("ingest", autocommit=True) as conn:
         pids = candidate_processings(conn, must_include)
         fingerprint, options = build_fingerprint()
@@ -184,18 +185,44 @@ def build_release(must_include: str | None = None) -> dict[str, Any]:
             "mapping_version": MAPPING_VERSION,
             "validation_version": VALIDATION_VERSION,
             "git_version": _git_version(),
+            "dbt_project_sha256": fingerprint,
+            "options": options,
         }
         with conn.transaction():
             conn.execute(
                 "INSERT INTO ctl.release (release_id, schema_name, status, code_version, params)"
                 " VALUES (%s,%s,'building',%s,%s) ON CONFLICT (release_id) DO UPDATE SET status='building',"
-                " status_reason=NULL",
+                " status_reason=NULL, params=EXCLUDED.params",
                 (rid, schema, CODE_VERSION, Jsonb(params)),
             )
             for pid in pids:
                 conn.execute("INSERT INTO ctl.release_processing VALUES (%s,%s) ON CONFLICT DO NOTHING", (rid, pid))
             log_event("release_building", conn=conn, release_id=rid, payload={"processings": len(pids)})
         snap = build_snapshot(conn, rid, pids)
+        with conn.transaction():
+            conn.execute(
+                "UPDATE ctl.release SET params = params || %s WHERE release_id=%s", (Jsonb({"snapshot": snap}), rid)
+            )
+    return {"release_id": rid, "schema": schema, "status": "building", "snapshot": snap, "processings": len(pids)}
+
+
+def _release_row(conn: psycopg.Connection, rid: str) -> tuple[str, str, dict[str, Any]]:
+    row = conn.execute("SELECT status, schema_name, params FROM ctl.release WHERE release_id=%s", (rid,)).fetchone()
+    if row is None:
+        raise ContractError("unknown release", code="unknown_release")
+    return row[0], row[1], row[2]
+
+
+def dbt_build(rid: str) -> dict[str, Any]:
+    """Run `dbt build` (models + seeds + tests) into the candidate schema (task dbt_build)."""
+    set_context(release_id=rid)
+    with connect("ingest", autocommit=True) as conn:
+        status, schema, params = _release_row(conn, rid)
+    if status in ("built", "gate_passed", "gate_failed", "published"):
+        return {"release_id": rid, "status": status, "idempotent": True}
+    if status != "building" or "snapshot" not in params:
+        raise ContractError(f"release must have a snapshot (status {status})", code="wrong_state")
+    options = params.get("options", {})
     out_dir = release_artifacts_dir(rid)
     target = out_dir / "dbt-target"
     if target.exists():
@@ -204,18 +231,16 @@ def build_release(must_include: str | None = None) -> dict[str, Any]:
     build = run_dbt(["build"], schema, target, rid, rid, options)
     crashpoint("during_dbt")
     results = _summarize(target / "run_results.json")
-    docs = run_dbt(["docs", "generate"], schema, target, rid, rid, options) if results["model_errors"] == 0 else None
-    for name in ("manifest.json", "run_results.json", "catalog.json", "index.html"):
+    for name in ("manifest.json", "run_results.json"):
         if (target / name).exists():
             shutil.copy2(target / name, out_dir / name)
     meta = {
         "release_id": rid,
         "schema": schema,
-        "snapshot": snap,
+        "snapshot": params["snapshot"],
         "dbt": results,
         "params": params,
         "dbt_build_exit": build.returncode,
-        "dbt_docs_exit": docs.returncode if docs else None,
     }
     (out_dir / "release.json").write_text(json.dumps(meta, indent=2, sort_keys=True))
     with connect("ingest", autocommit=True) as conn, conn.transaction():
@@ -228,10 +253,40 @@ def build_release(must_include: str | None = None) -> dict[str, Any]:
             raise HealthLakeError(reason, code="dbt_failed", release_id=rid, **results)
         conn.execute(
             "UPDATE ctl.release SET status='built', built_at=now(), params = params || %s WHERE release_id=%s",
-            (Jsonb({"snapshot": snap, "dbt": results}), rid),
+            (Jsonb({"dbt": results}), rid),
         )
-        log_event("release_built", conn=conn, release_id=rid, payload={**snap, **results})
-    return {"release_id": rid, "schema": schema, "status": "built", "snapshot": snap, "dbt": results}
+        log_event("release_built", conn=conn, release_id=rid, payload=results)
+    return {"release_id": rid, "schema": schema, "status": "built", "dbt": results}
+
+
+def dbt_docs(rid: str) -> dict[str, Any]:
+    """Generate dbt docs and lineage (catalog.json, index.html) and archive them with the release."""
+    set_context(release_id=rid)
+    with connect("ingest", autocommit=True) as conn:
+        status, schema, params = _release_row(conn, rid)
+    out_dir = release_artifacts_dir(rid)
+    if (out_dir / "catalog.json").exists() and (out_dir / "index.html").exists():
+        return {"release_id": rid, "idempotent": True}
+    if status not in ("built", "gate_passed", "gate_failed", "published"):
+        raise ContractError(f"release must be built (status {status})", code="wrong_state")
+    target = out_dir / "dbt-target"
+    docs = run_dbt(["docs", "generate"], schema, target, rid, rid, params.get("options", {}))
+    if docs.returncode != 0:
+        raise TransientError(f"dbt docs failed: {docs.stdout[-300:]}", code="dbt_docs_failed", release_id=rid)
+    for name in ("manifest.json", "catalog.json", "index.html"):
+        shutil.copy2(target / name, out_dir / name)
+    return {"release_id": rid, "artifacts": sorted(p.name for p in out_dir.iterdir() if p.is_file())}
+
+
+def build_release(must_include: str | None = None) -> dict[str, Any]:
+    """Convenience: prepare + dbt build + docs (the DAG runs them as separate tasks)."""
+    prep = prepare_release(must_include)
+    rid = prep["release_id"]
+    if prep.get("idempotent"):
+        return prep
+    built = dbt_build(rid)
+    dbt_docs(rid)
+    return {**built, "snapshot": prep["snapshot"]}
 
 
 def _summarize(run_results: Path) -> dict[str, Any]:

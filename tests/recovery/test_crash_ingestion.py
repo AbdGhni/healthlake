@@ -143,3 +143,43 @@ def test_second_attempt_is_refused_while_first_holds_the_processing(lake: dict[s
                 ingest_batch(b)
             assert exc.value.code == "processing_locked"
     assert ingest_batch(b)["status"] == "succeeded"
+
+
+def test_crash_during_final_report_then_report_again(lake: dict[str, Path], monkeypatch: pytest.MonkeyPatch) -> None:
+    """Crash point 7. The attempt state is already committed by `finish`; the report is re-runnable."""
+    from healthlake.errors import QualityBlockedError
+    from healthlake.pipelines.steps import report_attempt
+
+    b = f.write_csv_batch(lake["landing"], f.business_rows())
+    _discover(lake["landing"])
+    aid = ingest_batch(b)["attempt_id"]
+    monkeypatch.setenv("HEALTHLAKE_CRASH_AT", "during_final_report")
+    with pytest.raises(InjectedCrashError):
+        report_attempt(aid)
+    assert not (lake["artifacts"] / "reports" / f"{aid}.json").exists()
+    monkeypatch.delenv("HEALTHLAKE_CRASH_AT")
+    out = report_attempt(aid)
+    assert out["attempt_status"] == "succeeded"
+    assert (lake["artifacts"] / "reports" / f"{aid}.json").exists()
+    # loaded but no published release yet: a final report must not claim success
+    with pytest.raises(QualityBlockedError) as exc:
+        report_attempt(aid, fail_on_unsuccessful=True)
+    assert exc.value.code == "release_not_published"
+
+
+def test_final_report_fails_for_blocked_processing(lake: dict[str, Path]) -> None:
+    from healthlake.errors import QualityBlockedError
+    from healthlake.pipelines.steps import finish_attempt, report_attempt
+
+    rows = f.business_rows(1, 2)
+    rows["observations.csv"][0]["status"] = "bogus"
+    b = f.write_csv_batch(lake["landing"], rows)
+    _discover(lake["landing"])
+    with pytest.raises(Exception):  # noqa: B017 - blocked at classify
+        ingest_batch(b)
+    aid = one("SELECT attempt_id::text FROM ctl.attempt")
+    finish_attempt(aid)  # idempotent
+    with pytest.raises(QualityBlockedError) as exc:
+        report_attempt(aid, fail_on_unsuccessful=True)
+    assert exc.value.code == "attempt_blocked"
+    assert int(exc.value.exit_code) == 3  # non-retryable for Airflow

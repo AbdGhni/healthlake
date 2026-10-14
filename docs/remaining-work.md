@@ -5,6 +5,5 @@ Next: phase 7 (Airflow DAGs and crash points 4-7), 8 (quality catalogue, metrics
 
 Known gaps to address:
 - Work directory growth (939 MB for the demo profile): add retention/cleanup of `work/<processing_id>` after load.
-- `report` and `backfill` CLI commands do not exist yet.
 - Medication from earlier batches is not used to code MedicationRequest.medicationReference.
 - Unverified on this machine: PG17, Java 17, Docker images.

@@ -1,6 +1,6 @@
 # Implementation status
 
-Last update: 2026-10-14, end of phase 6.
+Last update: 2026-10-14, end of phase 7.
 
 ## Phases 0-1 (done, verified)
 Plan, locked dependencies, Synthea 4.0.0 and HL7 validator 7.0.1 pinned, migrations, roles, CLI skeleton.
@@ -43,7 +43,21 @@ Plan, locked dependencies, Synthea 4.0.0 and HL7 validator 7.0.1 pinned, migrati
 - dbt tests caught two real bugs during development (ambiguous column in dim_code; dim_date bounds computed
   in the session time zone instead of UTC), both fixed.
 
-## Tests (all run, all pass): 63
+## Phase 7: Airflow and recovery (done, verified)
+- DAGs `healthlake_discovery` and `healthlake_ingestion` (ADR 0005), helper `_healthlake/cli.py`.
+- New CLI commands: `build-snapshot`, `dbt-build`, `dbt-docs`, `report`, `backfill` (release build split into tasks).
+- Live verification in the sandbox (no Docker): Airflow 3.3.2 api-server + scheduler + dag-processor with
+  LocalExecutor on a PostgreSQL metadata DB, FAB authentication (unauthenticated API call -> 401):
+  - discovery triggered 3 ingestion runs (test profile), all `success` (2m18s, 1m01s, 1m02s), 3 releases
+    published in turn, the last one active;
+  - re-running discovery 4 more times created no new ingestion run;
+  - an invalid CSV batch: `classify_quality` failed on try 1 (no retry), downstream `upstream_failed`,
+    `final_report` ran and failed on try 1, run `failed`, active release unchanged.
+- Crash point 7 (during final report) and final-report semantics covered by tests.
+
+## Tests (all run, all pass): 65 (app venv) + 12 (Airflow venv)
+- Airflow venv: 12 DAG tests (import without network/DB, task contract, single leaf, retries, pools, params,
+  exit-code mapping, deterministic run ids).
 - unit 21, integration 35 (incl. 7 release tests with real dbt builds: happy path, rebuild idempotence, switch,
   failed gate keeps the active release, blocked processing, crash points 4-6, retention), earlier integration 28 (migrations + section 19.1 data cases), recovery 5 (crash points 1-3, hard kill,
   concurrent attempts), fhir 1 (real HL7 validator), config/CLI 3.

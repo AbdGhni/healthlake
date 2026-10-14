@@ -9,7 +9,7 @@ from typing import Any
 import psycopg
 
 from healthlake.db import connect
-from healthlake.errors import ContractError, HealthLakeError
+from healthlake.errors import ContractError, HealthLakeError, QualityBlockedError
 from healthlake.ingestion.registry import archive, processing_row, start_attempt, verify_batch
 from healthlake.normalization.project import normalize
 from healthlake.observability import log_event
@@ -128,3 +128,66 @@ def ingest_batch(batch_id: str, run_id: str | None = None) -> dict[str, Any]:
         "status": final["status"],
         "counters": results.get("classify", {}),
     }
+
+
+def report_attempt(attempt_id: str, fail_on_unsuccessful: bool = False) -> dict[str, Any]:
+    """Write artifacts/reports/<attempt_id>.json. Re-runnable; with fail_on_unsuccessful the command fails when
+    the attempt did not succeed, so an orchestrator's final task cannot hide a failed processing."""
+    import json
+    import os
+
+    from healthlake.config import paths
+    from healthlake.testing import crashpoint
+
+    info = inspect_attempt(attempt_id)
+    pid = info["processing"]["processing_id"]
+    with connect("ingest") as conn:
+        rel = conn.execute(
+            "SELECT r.release_id, r.status, r.status_reason FROM ctl.release r JOIN ctl.release_processing rp"
+            " USING (release_id) WHERE rp.processing_id=%s ORDER BY r.created_at DESC LIMIT 1",
+            (pid,),
+        ).fetchone()
+        active = conn.execute("SELECT release_id, activated_at FROM ctl.active_release").fetchone()
+    report = {
+        **info,
+        "release": {"release_id": rel[0], "status": rel[1], "reason": rel[2]} if rel else None,
+        "active_release": {"release_id": active[0], "activated_at": active[1]} if active else None,
+    }
+    crashpoint("during_final_report")
+    out = paths().artifacts / "reports"
+    out.mkdir(parents=True, exist_ok=True)
+    tmp = out / f".{attempt_id}.json.tmp"
+    tmp.write_text(json.dumps(report, indent=2, sort_keys=True, default=str))
+    os.replace(tmp, out / f"{attempt_id}.json")
+    status = info["attempt"]["status"]
+    result = {
+        "attempt_id": attempt_id,
+        "attempt_status": status,
+        "report": str(out / f"{attempt_id}.json"),
+        "release": report["release"],
+    }
+    if fail_on_unsuccessful and status != "succeeded":
+        raise QualityBlockedError(f"attempt finished with status {status}", code=f"attempt_{status}", **result)
+    release_status = rel[1] if rel else None
+    if fail_on_unsuccessful and release_status != "published":
+        raise QualityBlockedError(
+            f"batch loaded but its release is {release_status}", code="release_not_published", **result
+        )
+    return result
+
+
+def backfill(batch_ids: list[str]) -> dict[str, Any]:
+    """Ingest several batches in the given order (e.g. late older revisions). Each batch is independent;
+    the snapshot always selects the highest source_revision, so order does not change the published result."""
+    results = []
+    failed = 0
+    for bid in batch_ids:
+        try:
+            r = ingest_batch(bid)
+            results.append({"batch_id": bid, "status": r["status"], "processing_id": r["processing_id"]})
+        except HealthLakeError as exc:
+            failed += 1
+            results.append({"batch_id": bid, "status": "failed", "error_code": exc.code})
+    if failed:
+        raise HealthLakeError(f"{failed} batch(es) failed", code="backfill_partial", results=results)
+    return {"results": results}

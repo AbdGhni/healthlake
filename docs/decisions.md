@@ -14,3 +14,5 @@
 - 2026-10-14: Release id includes a fingerprint of the dbt project and build options (ADR 0004).
 - 2026-10-14: The release gate runs as the publish role (it must read the candidate schema owned by hl_dbt).
 - 2026-10-14: The API role reads only the 15 Gold marts; staging views (which select from Silver) are not granted.
+- 2026-10-14: Airflow runs the CLI as subprocesses; final_report is the single leaf and fails unless the batch is loaded and its release published (ADR 0005).
+- 2026-10-14: FAB auth manager for Airflow (not the Simple auth manager, which Airflow documents as dev-only).
