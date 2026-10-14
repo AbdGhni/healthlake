@@ -13,7 +13,7 @@ from typing import Any
 import psycopg
 
 from healthlake.ids import entity_id, sha256_json
-from healthlake.ingestion.registry import processing_row
+from healthlake.ingestion.registry import processing_row, status_at_least
 from healthlake.normalization.references import ParsedRef, iter_refs, parse_reference
 from healthlake.observability import log_event
 from healthlake.pipelines.adapt_validate import _require
@@ -64,6 +64,8 @@ def _issue(rec: Rec, check: str, cause: str, msg: str, severity: str = "error") 
 def resolve(conn: psycopg.Connection, pid: str, ws: Workspace, sources_cfg: dict[str, Any]) -> dict[str, Any]:
     p = processing_row(conn, pid)
     _require(p, "adapted")
+    if status_at_least(p["status"], "validated"):
+        return {"processing_id": pid, "status": p["status"], "idempotent": True}
     done = ws.done("resolve")
     if done is not None:
         return {**done, "idempotent": True}

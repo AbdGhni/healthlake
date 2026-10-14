@@ -11,6 +11,7 @@ from psycopg.types.json import Jsonb
 
 from healthlake.db import connect
 from healthlake.errors import ContractError, QualityBlockedError
+from healthlake.generation.synthea import load_json
 from healthlake.observability import log_event, set_context
 from healthlake.release.build import REQUIRED_MODELS, release_artifacts_dir
 from healthlake.testing import crashpoint
@@ -100,6 +101,7 @@ def quality_gate(rid: str) -> dict[str, Any]:
             ),
         ]
         failed = [c[0] for c in checks if not c[1]]
+        observations = release_observations(conn, rid, schema) if not missing else []
         with conn.transaction():
             for check_id, ok, observed, threshold, details in checks:
                 conn.execute(
@@ -108,6 +110,14 @@ def quality_gate(rid: str) -> dict[str, Any]:
                     " DO UPDATE SET status=EXCLUDED.status, observed=EXCLUDED.observed, details=EXCLUDED.details,"
                     " evaluated_at=now()",
                     (rid, check_id, "pass" if ok else "fail", observed, threshold, Jsonb(details)),
+                )
+            for obs in observations:
+                conn.execute(
+                    "INSERT INTO quality.check_result (scope, scope_id, check_id, status, observed, threshold,"
+                    " details) VALUES ('release', %s, %s, %s, %s, %s, %s) ON CONFLICT (scope, scope_id, check_id)"
+                    " DO UPDATE SET status=EXCLUDED.status, observed=EXCLUDED.observed, details=EXCLUDED.details,"
+                    " evaluated_at=now()",
+                    (rid, obs[0], obs[1], obs[2], obs[3], Jsonb(obs[4])),
                 )
             new_status = "gate_failed" if failed else "gate_passed"
             conn.execute(
@@ -129,4 +139,78 @@ def quality_gate(rid: str) -> dict[str, Any]:
             release_id=rid,
             failed_checks=failed,
         )
-    return {"release_id": rid, "status": "gate_passed", "checks": {c[0]: "pass" for c in checks}}
+    return {
+        "release_id": rid,
+        "status": "gate_passed",
+        "checks": {c[0]: "pass" for c in checks},
+        "observations": {o[0]: {"status": o[1], "observed": o[2]} for o in observations},
+    }
+
+
+Observation = tuple[str, str, float | None, float | None, dict[str, Any]]
+
+
+def release_observations(conn: psycopg.Connection, rid: str, schema: str) -> list[Observation]:
+    """Non-blocking release measures from the quality catalog (status pass / warn)."""
+    catalog = load_json("quality-catalog.json")
+    known = catalog["known_code_systems"]
+    thresholds = {c["id"]: c.get("threshold") for c in catalog["checks"]}
+    out: list[Observation] = []
+    row = conn.execute(
+        "SELECT count(*) FILTER (WHERE c.system = ANY(%s)), count(*), count(*) FILTER (WHERE c.system IS NULL)"
+        " FROM silver.coding c JOIN silver.snapshot_member sm USING (resource_version_id) WHERE sm.snapshot_id=%s",
+        (known, rid),
+    ).fetchone()
+    known_n, total, no_system = row if row else (0, 0, 0)
+    cov = round(known_n / total, 6) if total else 1.0
+    t = float(thresholds["release.terminology_coverage"])
+    out.append(
+        (
+            "release.terminology_coverage",
+            "pass" if cov >= t else "warn",
+            cov,
+            t,
+            {
+                "codings": total,
+                "known_system": known_n,
+                "no_system": no_system,
+                "limits": "system URI recognised; codes not validated against a terminology server",
+            },
+        )
+    )
+    ref = conn.execute(
+        "SELECT max((b.manifest->>'reference_date')::date) FROM ctl.release_processing rp"
+        " JOIN ctl.processing p USING (processing_id) JOIN ctl.batch b ON b.batch_id=p.batch_id"
+        " WHERE rp.release_id=%s",
+        (rid,),
+    ).fetchone()
+    latest = conn.execute(
+        sql.SQL("SELECT max(start_at) FROM {}.fct_encounter").format(sql.Identifier(schema))
+    ).fetchone()
+    t = float(thresholds["release.freshness_clinical_data"])
+    if ref and ref[0] and latest and latest[0]:
+        days = float((ref[0] - latest[0].date()).days)
+        out.append(
+            (
+                "release.freshness_clinical_data",
+                "pass" if days <= t else "warn",
+                days,
+                t,
+                {"reference_date": str(ref[0]), "latest_encounter_start": latest[0].isoformat()},
+            )
+        )
+    else:
+        out.append(
+            ("release.freshness_clinical_data", "warn", None, t, {"reason": "no encounter or no reference date"})
+        )
+    for check_id, model, col in (
+        ("release.completeness_encounter_end", "fct_encounter", "end_at"),
+        ("release.completeness_observation_effective", "fct_observation", "effective_at"),
+    ):
+        q = sql.SQL("SELECT count({c}), count(*) FROM {s}.{m}").format(
+            c=sql.Identifier(col), s=sql.Identifier(schema), m=sql.Identifier(model)
+        )
+        r = conn.execute(q).fetchone()
+        share = round(r[0] / r[1], 6) if r and r[1] else None
+        out.append((check_id, "pass", share, None, {"with_value": r[0] if r else 0, "rows": r[1] if r else 0}))
+    return out

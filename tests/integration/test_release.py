@@ -73,6 +73,9 @@ def test_happy_path_publish_rebuild_and_switch(dbt_lake: dict[str, Path]) -> Non
     # the changed patient appears once, with its latest version
     assert one(f"SELECT count(*) FROM \"{s2}\".dim_patient WHERE source_id='horizon-nord' AND gender='male'") == 1
     assert one(f'SELECT count(*) FROM "{s2}".dim_patient') == 9
+    # runbook rollback: re-activating an earlier published release is atomic and allowed
+    assert publish(r1)["active"] is True and active() == r1
+    assert publish(r2)["active"] is True and active() == r2
 
 
 def test_failed_gate_keeps_previous_release_active(dbt_lake: dict[str, Path], monkeypatch: pytest.MonkeyPatch) -> None:
@@ -153,3 +156,19 @@ def test_retention_purges_old_schemas(dbt_lake: dict[str, Path], monkeypatch: py
     s1 = one("SELECT schema_name FROM ctl.release WHERE release_id=%s", r1)
     assert one("SELECT count(*) FROM pg_namespace WHERE nspname=%s", s1) == 0
     assert active() == r2
+
+
+def test_release_records_non_blocking_observations(dbt_lake: dict[str, Path]) -> None:
+    ingest_all(dbt_lake["landing"], n=2)
+    rid = build_release()["release_id"]
+    res = quality_gate(rid)
+    obs = res["observations"]
+    assert set(obs) == {
+        "release.terminology_coverage",
+        "release.freshness_clinical_data",
+        "release.completeness_encounter_end",
+        "release.completeness_observation_effective",
+    }
+    assert obs["release.terminology_coverage"]["status"] == "pass"
+    assert obs["release.completeness_encounter_end"]["observed"] == 1.0
+    assert one("SELECT count(*) FROM quality.check_result WHERE scope='release' AND scope_id=%s", rid) == 10

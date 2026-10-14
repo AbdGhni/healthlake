@@ -1,6 +1,6 @@
 # Implementation status
 
-Last update: 2026-10-14, end of phase 7.
+Last update: 2026-10-14, end of phase 8.
 
 ## Phases 0-1 (done, verified)
 Plan, locked dependencies, Synthea 4.0.0 and HL7 validator 7.0.1 pinned, migrations, roles, CLI skeleton.
@@ -55,7 +55,18 @@ Plan, locked dependencies, Synthea 4.0.0 and HL7 validator 7.0.1 pinned, migrati
     `final_report` ran and failed on try 1, run `failed`, active release unchanged.
 - Crash point 7 (during final report) and final-report semantics covered by tests.
 
-## Tests (all run, all pass): 65 (app venv) + 12 (Airflow venv)
+## Phase 8: quality and observability (done, verified)
+- Versioned catalogue `config/quality-catalog.json` (qc-1, 40 checks) rendered to docs/quality-catalog.md; a test
+  fails if code emits a check id missing from the catalogue or if the doc is stale.
+- New checks: extreme values (`value.extreme`, warnings, `config/plausibility.json`), release observations
+  (terminology coverage, clinical-data freshness, completeness), `verify-bronze` reconciliation.
+- Prometheus collector with bounded labels (`healthlake metrics`; API `/metrics` in phase 9), command duration
+  logs, secret redaction, `gc-work`.
+- Runbooks for the 7 pipeline situations (docs/runbooks). API, dashboard and restore runbooks come with phases 9-11.
+- Bug found and fixed: replaying a batch after its work files were cleaned re-ran adaptation and temporarily
+  moved the processing status back; steps now decide idempotence from the database first (tested).
+
+## Tests (all run, all pass): 76 (app venv) + 12 (Airflow venv)
 - Airflow venv: 12 DAG tests (import without network/DB, task contract, single leaf, retries, pools, params,
   exit-code mapping, deterministic run ids).
 - unit 21, integration 35 (incl. 7 release tests with real dbt builds: happy path, rebuild idempotence, switch,

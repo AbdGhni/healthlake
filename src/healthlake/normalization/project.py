@@ -313,6 +313,8 @@ def normalize(conn: psycopg.Connection, pid: str, ws: Workspace) -> dict[str, An
         raise HealthLakeError("processing is blocked", code="processing_blocked")
     if not status_at_least(p["status"], "validated"):
         raise HealthLakeError("classify must accept the processing first", code="wrong_state")
+    if status_at_least(p["status"], "loaded"):
+        return {"processing_id": pid, "status": p["status"], "idempotent": True}
     done = ws.done("normalize")
     if done is not None:
         if not status_at_least(p["status"], "normalized"):

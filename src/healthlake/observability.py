@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 import time
 from datetime import UTC, datetime
@@ -22,6 +23,20 @@ def set_context(**ids: str | None) -> None:
             _CONTEXT[k] = v
 
 
+_SECRET_PATTERNS = [
+    re.compile(r"(password\s*=\s*)('[^']*'|\S+)", re.IGNORECASE),
+    re.compile(r"(://[^:/@\s]+:)([^@\s]+)(@)"),
+    re.compile(r"(X-API-Key[\"']?\s*[:=]\s*[\"']?)([^\s\"',]+)", re.IGNORECASE),
+]
+
+
+def redact(text: str) -> str:
+    """Remove credentials that libraries may echo in error messages."""
+    for pat in _SECRET_PATTERNS:
+        text = pat.sub(lambda m: m.group(1) + "***" + (m.group(3) if m.lastindex and m.lastindex >= 3 else ""), text)
+    return text
+
+
 def log(event: str, level: str = "info", **fields: Any) -> None:
     rec = {
         "timestamp": datetime.now(UTC).isoformat(timespec="milliseconds"),
@@ -30,7 +45,7 @@ def log(event: str, level: str = "info", **fields: Any) -> None:
         **_CONTEXT,
         **fields,
     }
-    sys.stderr.write(json.dumps(rec, separators=(",", ":"), default=str, sort_keys=True) + "\n")
+    sys.stderr.write(redact(json.dumps(rec, separators=(",", ":"), default=str, sort_keys=True)) + "\n")
 
 
 def log_event(

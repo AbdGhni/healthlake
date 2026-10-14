@@ -15,6 +15,7 @@ import argparse
 import json
 import re
 import sys
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -146,6 +147,47 @@ def _backfill(a: argparse.Namespace) -> dict[str, Any]:
     return backfill(ids)
 
 
+def _metrics(_: argparse.Namespace) -> dict[str, Any]:
+    from healthlake.metrics import render_text
+
+    sys.stderr.write(render_text("ingest"))
+    return {"format": "prometheus text written to stderr"}
+
+
+def _verify_bronze(_: argparse.Namespace) -> dict[str, Any]:
+    from healthlake.db import connect
+    from healthlake.errors import QualityBlockedError
+    from healthlake.pipelines.runner import store
+
+    with connect("ingest") as conn:
+        registry = [r[0] for r in conn.execute("SELECT sha256 FROM bronze.file").fetchall()]
+    rec = store().list_referenced_objects(registry)
+    result = {"registered": len(registry), **{k: len(v) for k, v in rec.items()}, "details": rec}
+    if rec["missing"] or rec["corrupted"]:
+        raise QualityBlockedError("Bronze objects missing or corrupted", code="bronze_integrity", **result)
+    return result
+
+
+def _gc_work(a: argparse.Namespace) -> dict[str, Any]:
+    import shutil
+
+    from healthlake.config import paths
+    from healthlake.db import connect
+
+    cutoff = time.time() - a.older_than_hours * 3600
+    with connect("ingest") as conn:
+        rows = conn.execute("SELECT processing_id FROM ctl.processing WHERE status IN ('loaded','blocked')")
+        done = {r[0] for r in rows}
+    removed, freed = 0, 0
+    root = paths().work
+    for d in sorted(root.iterdir()) if root.exists() else []:
+        if d.is_dir() and d.name in done and d.stat().st_mtime <= cutoff:
+            freed += sum(f.stat().st_size for f in d.rglob("*") if f.is_file())
+            shutil.rmtree(d)
+            removed += 1
+    return {"removed": removed, "freed_bytes": freed}
+
+
 def _quality_gate(a: argparse.Namespace) -> dict[str, Any]:
     from healthlake.release.gate import quality_gate
 
@@ -221,6 +263,13 @@ def build_parser() -> argparse.ArgumentParser:
     bf = sub.add_parser("backfill", help="ingest a comma-separated list of batch ids in order")
     bf.add_argument("--batch-list", required=True)
     bf.set_defaults(func=_backfill)
+    sub.add_parser("metrics", help="print Prometheus metrics of the control plane").set_defaults(func=_metrics)
+    sub.add_parser("verify-bronze", help="re-hash Bronze objects and reconcile them with the registry").set_defaults(
+        func=_verify_bronze
+    )
+    gc = sub.add_parser("gc-work", help="delete work files of loaded or blocked processings")
+    gc.add_argument("--older-than-hours", type=float, default=24.0)
+    gc.set_defaults(func=_gc_work)
     qg = sub.add_parser("quality-gate", help="evaluate a built release")
     qg.add_argument("--release-id", type=_hex64, required=True)
     qg.set_defaults(func=_quality_gate)
@@ -237,6 +286,9 @@ def main(argv: list[str] | None = None) -> int:
     except SystemExit as exc:
         return int(ExitCode.CONTRACT) if exc.code else 0
     func: Handler = args.func
+    from healthlake.observability import log, redact
+
+    started = time.perf_counter()
     try:
         result = func(args)
         out = {"ok": True, "command": args.command, **result}
@@ -250,7 +302,7 @@ def main(argv: list[str] | None = None) -> int:
             **exc.details,
         }
         code = exc.exit_code
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - last resort: reported as JSON with exit code 1, never hidden
         import psycopg
 
         if isinstance(exc, psycopg.OperationalError):
@@ -269,6 +321,16 @@ def main(argv: list[str] | None = None) -> int:
                 "message": repr(exc)[:500],
             }
             code = ExitCode.UNEXPECTED
+    if "message" in out:
+        out["message"] = redact(str(out["message"]))
+    log(
+        "command_finished",
+        level="info" if code == ExitCode.OK else "error",
+        command=args.command,
+        exit_code=int(code),
+        duration_ms=round((time.perf_counter() - started) * 1000),
+        **({"error_code": out["error_code"]} if "error_code" in out else {}),
+    )
     sys.stdout.write(json.dumps(out, separators=(",", ":"), sort_keys=True, default=str) + "\n")
     return int(code)
 

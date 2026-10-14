@@ -15,6 +15,7 @@ from healthlake.ingestion.rawstore import LocalRawStore
 from healthlake.ingestion.registry import processing_row, set_processing_status, status_at_least
 from healthlake.observability import log_event
 from healthlake.pipelines.workspace import Workspace
+from healthlake.validation.plausibility import check_observation
 from healthlake.validation.structural import validate_resource
 
 
@@ -28,6 +29,8 @@ def _require(p: dict[str, Any], status: str) -> None:
 def adapt(conn: psycopg.Connection, pid: str, store: LocalRawStore, ws: Workspace, limits: Limits) -> dict[str, Any]:
     p = processing_row(conn, pid)
     _require(p, "archived")
+    if status_at_least(p["status"], "adapted"):  # database state wins over work files (they may be cleaned)
+        return {"processing_id": pid, "status": p["status"], "idempotent": True}
     done = ws.done("adapt")
     if done is not None:
         if not status_at_least(p["status"], "adapted"):
@@ -74,6 +77,8 @@ def adapt(conn: psycopg.Connection, pid: str, store: LocalRawStore, ws: Workspac
 def validate(conn: psycopg.Connection, pid: str, ws: Workspace, store: LocalRawStore | None = None) -> dict[str, Any]:
     p = processing_row(conn, pid)
     _require(p, "adapted")
+    if status_at_least(p["status"], "validated"):
+        return {"processing_id": pid, "status": p["status"], "idempotent": True}
     done = ws.done("validate")
     if done is not None:
         return {**done, "idempotent": True}
@@ -84,6 +89,8 @@ def validate(conn: psycopg.Connection, pid: str, ws: Workspace, store: LocalRawS
             issues = list(rec["issues"])
             if rec["resource"]:
                 issues += [vars(i) for i in validate_resource(rec["type"], rec["resource"], rec["loc"], rec["file"])]
+                if rec["type"] == "Observation":
+                    issues += [vars(i) for i in check_observation(rec["resource"], rec["loc"], rec["file"])]
             if issues:
                 with_issues += 1
                 errors += sum(1 for i in issues if i["severity"] in ("error", "fatal"))

@@ -16,3 +16,6 @@
 - 2026-10-14: The API role reads only the 15 Gold marts; staging views (which select from Silver) are not granted.
 - 2026-10-14: Airflow runs the CLI as subprocesses; final_report is the single leaf and fails unless the batch is loaded and its release published (ADR 0005).
 - 2026-10-14: FAB auth manager for Airflow (not the Simple auth manager, which Airflow documents as dev-only).
+- 2026-10-14: Quality catalogue is the source of truth (config/quality-catalog.json); docs generated; code/catalogue consistency tested.
+- 2026-10-14: Plausibility ranges flag (warning), never reject or convert values.
+- 2026-10-14: Step idempotence is decided from the processing status in the database before looking at work files.

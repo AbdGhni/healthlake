@@ -33,7 +33,7 @@ target-version = "py312"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "S", "N", "RUF"]
+select = ["E", "F", "W", "I", "B", "BLE", "UP", "S", "N", "RUF"]
 ignore = ["S101", "S603", "S607", "S608"]
 
 [tool.ruff.lint.isort]

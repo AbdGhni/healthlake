@@ -1,0 +1,14 @@
+{
+  "version": "plaus-1",
+  "note": "Engineering plausibility ranges to flag likely unit or entry errors in synthetic data. Not clinical reference ranges.",
+  "ranges": [
+    {"code": "8302-2", "unit": "cm", "min": 30, "max": 250, "label": "Body height"},
+    {"code": "29463-7", "unit": "kg", "min": 0.3, "max": 400, "label": "Body weight"},
+    {"code": "8867-4", "unit": "/min", "min": 20, "max": 300, "label": "Heart rate"},
+    {"code": "9279-1", "unit": "/min", "min": 4, "max": 80, "label": "Respiratory rate"},
+    {"code": "8310-5", "unit": "Cel", "min": 25, "max": 45, "label": "Body temperature"},
+    {"code": "8480-6", "unit": "mm[Hg]", "min": 40, "max": 300, "label": "Systolic blood pressure"},
+    {"code": "8462-4", "unit": "mm[Hg]", "min": 20, "max": 200, "label": "Diastolic blood pressure"},
+    {"code": "39156-5", "unit": "kg/m2", "min": 5, "max": 100, "label": "Body mass index"}
+  ]
+}
