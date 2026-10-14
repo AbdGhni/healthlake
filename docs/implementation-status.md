@@ -1,6 +1,6 @@
 # Implementation status
 
-Last update: 2026-10-14, end of phase 9.
+Last update: 2026-10-14, end of phase 10.
 
 ## Phases 0-1 (done, verified)
 Plan, locked dependencies, Synthea 4.0.0 and HL7 validator 7.0.1 pinned, migrations, roles, CLI skeleton.
@@ -75,7 +75,14 @@ Plan, locked dependencies, Synthea 4.0.0 and HL7 validator 7.0.1 pinned, migrati
 - Live check under uvicorn (2 workers) on the published test profile: readiness 200, no key 401, summary
   10 patients / 236 encounters / 1 447 observations, `/docs` 200.
 
-## Tests (all run, all pass): 79 (app venv) + 12 (Airflow venv)
+## Phase 10: dashboard (done, verified)
+- Streamlit 1.65 app, 6 pages through the API only (docs/dashboard.md), release pinned per page run, cache keyed
+  by release id, indicator definitions, empty/error states, accessible palette with fixed colour per entity.
+- Verified live: uvicorn API + Streamlit + Chromium (Playwright); screenshots in docs/screenshots (test profile).
+- Visual review found and fixed: hidden bar labels, header wrapping, raw `None`/fractions in the quality table,
+  and an API defect: timestamps were returned in the server time zone (+02:00); API sessions now use UTC.
+
+## Tests (all run, all pass): 79 (app venv) + 12 (Airflow venv) + 10 (dashboard venv)
 - Airflow venv: 12 DAG tests (import without network/DB, task contract, single leaf, retries, pools, params,
   exit-code mapping, deterministic run ids).
 - unit 21, integration 35 (incl. 7 release tests with real dbt builds: happy path, rebuild idempotence, switch,

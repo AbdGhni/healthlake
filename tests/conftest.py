@@ -8,9 +8,7 @@ import uuid
 from collections.abc import Iterator
 from pathlib import Path
 
-import psycopg
 import pytest
-from psycopg import sql
 
 ROLES = ("owner", "ingest", "dbt", "publish", "api")
 
@@ -25,6 +23,9 @@ def _admin_dsn() -> str:
 @pytest.fixture
 def fresh_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, str]]:
     """Create an empty database owned by a superuser-like owner role, point HEALTHLAKE_* env at it."""
+    import psycopg
+    from psycopg import sql
+
     admin = _admin_dsn()
     name = f"hl_test_{uuid.uuid4().hex[:10]}"
     with psycopg.connect(admin, autocommit=True) as conn:

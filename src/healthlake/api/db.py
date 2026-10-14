@@ -31,6 +31,7 @@ def engine() -> Engine:
         with dbapi_conn.cursor() as cur:
             cur.execute("SET default_transaction_read_only = on")
             cur.execute("SET statement_timeout = '10s'")
+            cur.execute("SET TIME ZONE 'UTC'")  # every timestamp leaves the API in UTC
         dbapi_conn.commit()
 
     return eng

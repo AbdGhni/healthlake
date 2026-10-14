@@ -37,7 +37,7 @@ select = ["E", "F", "W", "I", "B", "BLE", "UP", "S", "N", "RUF"]
 ignore = ["S101", "S603", "S607", "S608"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["healthlake", "tests", "_healthlake"]
+known-first-party = ["healthlake", "tests", "_healthlake", "hl_dash"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S105", "S106", "S311"]

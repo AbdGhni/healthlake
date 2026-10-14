@@ -22,3 +22,5 @@
 - 2026-10-14: API keys stored as SHA-256 hashes; plain keys only in a 0600 operator file. Scopes read/ops; /metrics requires ops.
 - 2026-10-14: Keyset pagination with HMAC-signed cursors (release, endpoint, filter hash, last key) instead of offsets.
 - 2026-10-14: Aggregated views exposed through `group_by` on existing endpoints (encounters?group_by=day, observations?group_by=code) rather than new paths.
+- 2026-10-14: API sessions run with TIME ZONE 'UTC' so every timestamp leaves the API in UTC (found in dashboard review).
+- 2026-10-14: Dashboard component tests use recorded responses of the real API; the live check is the screenshot run.
