@@ -13,6 +13,22 @@ import pytest
 ROLES = ("owner", "ingest", "dbt", "publish", "api")
 
 
+def ensure_owner(conn: object, password: str) -> None:
+    """Create the superuser owner role if needed and give it this test's password.
+
+    The password matters on servers that authenticate TCP connections (CI); a local socket with `trust` ignores it.
+    """
+    from psycopg import sql
+
+    conn.execute(  # type: ignore[attr-defined]
+        "DO $$BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='healthlake_owner') "
+        "THEN CREATE ROLE healthlake_owner LOGIN SUPERUSER; END IF; END$$"
+    )
+    conn.execute(  # type: ignore[attr-defined]
+        sql.SQL("ALTER ROLE healthlake_owner WITH LOGIN SUPERUSER PASSWORD {}").format(sql.Literal(password))
+    )
+
+
 def _admin_dsn() -> str:
     dsn = os.environ.get("HEALTHLAKE_TEST_ADMIN_DSN")
     if not dsn:
@@ -28,19 +44,16 @@ def fresh_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[s
 
     admin = _admin_dsn()
     name = f"hl_test_{uuid.uuid4().hex[:10]}"
-    with psycopg.connect(admin, autocommit=True) as conn:
-        host, port = conn.info.host, conn.info.port
-        conn.execute(
-            "DO $$BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='healthlake_owner') "
-            "THEN CREATE ROLE healthlake_owner LOGIN SUPERUSER; END IF; END$$"
-        )
-        conn.execute(sql.SQL("CREATE DATABASE {} OWNER healthlake_owner").format(sql.Identifier(name)))
     secret_dir = tmp_path / "secrets"
     secret_dir.mkdir()
     for role in ROLES:
         f = secret_dir / role
         f.write_text(secrets.token_urlsafe(24))
         monkeypatch.setenv(f"HEALTHLAKE_DB_{role.upper()}_PASSWORD_FILE", str(f))
+    with psycopg.connect(admin, autocommit=True) as conn:
+        host, port = conn.info.host, conn.info.port
+        ensure_owner(conn, (secret_dir / "owner").read_text())
+        conn.execute(sql.SQL("CREATE DATABASE {} OWNER healthlake_owner").format(sql.Identifier(name)))
     monkeypatch.setenv("HEALTHLAKE_DB_HOST", host)
     monkeypatch.setenv("HEALTHLAKE_DB_PORT", str(port))
     monkeypatch.setenv("HEALTHLAKE_DB_NAME", name)

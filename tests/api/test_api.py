@@ -15,6 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 from psycopg import sql
 
+from tests.conftest import ensure_owner
 from tests.fixtures import factory as f
 
 pytestmark = [pytest.mark.db, pytest.mark.slow]
@@ -28,13 +29,14 @@ def env(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, Any]]:
     mp = pytest.MonkeyPatch()
     tmp = tmp_path_factory.mktemp("api")
     name = f"hl_test_{uuid.uuid4().hex[:10]}"
-    with psycopg.connect(admin, autocommit=True) as conn:
-        host, port = conn.info.host, conn.info.port
-        conn.execute(sql.SQL("CREATE DATABASE {} OWNER healthlake_owner").format(sql.Identifier(name)))
     for role in ("owner", "ingest", "dbt", "publish", "api"):
         p = tmp / f"pw_{role}"
         p.write_text(secrets.token_urlsafe(24))
         mp.setenv(f"HEALTHLAKE_DB_{role.upper()}_PASSWORD_FILE", str(p))
+    with psycopg.connect(admin, autocommit=True) as conn:
+        host, port = conn.info.host, conn.info.port
+        ensure_owner(conn, (tmp / "pw_owner").read_text())
+        conn.execute(sql.SQL("CREATE DATABASE {} OWNER healthlake_owner").format(sql.Identifier(name)))
     for k in ("landing", "lake", "work", "artifacts"):
         (tmp / k).mkdir()
         mp.setenv(f"HEALTHLAKE_{k.upper()}_DIR", str(tmp / k))
