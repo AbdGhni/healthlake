@@ -40,8 +40,12 @@ COPY --chmod=0755 infrastructure/docker/healthlake-wrapper.sh /usr/local/bin/hea
 COPY --chmod=0755 infrastructure/docker/airflow-init.sh /usr/local/bin/airflow-init
 COPY infrastructure/docker/fhir-warmup.json /opt/healthlake/fhir-warmup.json
 
+# Read-only for the runtime user: ADD of a URL can leave /opt/healthlake without the execute bit for others
+# (found by the first CI image build: "Unable to access jarfile" as uid 50000).
 RUN set -eux; mkdir -p /data/landing /data/lake /data/work /data/artifacts; \
-    chown -R 50000:0 /data; chmod -R 0770 /data
+    chown -R 50000:0 /data; chmod -R 0770 /data; \
+    find /opt/healthlake -type d -exec chmod 0755 {} +; find /opt/healthlake -type f -exec chmod a+r,go-w {} +; \
+    ls -ld /opt/healthlake /opt/healthlake/validator_cli.jar /opt/healthlake/synthea.jar
 
 ENV HEALTHLAKE_CONFIG_DIR=/opt/healthlake/config \
     HEALTHLAKE_MIGRATIONS_DIR=/opt/healthlake/migrations \
