@@ -118,6 +118,13 @@ jobs:
         run: |
           python3 scripts/backup.py
           python3 scripts/restore.py --from "backups/$(ls backups | tail -1)" --wipe-project-volumes
+      - name: diagnostics of one-shot and unhealthy services
+        if: failure()
+        run: |
+          docker compose ps -a
+          for s in db-init airflow-init airflow-api-server airflow-scheduler airflow-dag-processor; do
+            echo "::group::$s"; docker compose logs --no-color --tail=120 "$s" || true; echo "::endgroup::"
+          done
       - name: filtered validation artifacts (reports and dbt run results only; no data, no secrets)
         if: always()
         run: |
