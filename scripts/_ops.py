@@ -129,10 +129,15 @@ class Docker:
             raise SystemExit(f"[ops] restore of {part} failed: {res.stderr.decode()[-500:]}")
 
     def reset_role_passwords(self) -> None:
-        """Backups hold no password: set the login roles' passwords again from .secrets (db-init is idempotent)."""
-        out = self.cli("db-init")
-        if out["_exit"] != 0:
-            raise SystemExit(f"[ops] db-init failed: {out}")
+        """Backups hold no password: set the login roles' passwords again from .secrets.
+
+        Runs the one-shot db-init service (idempotent), the only service that holds the owner password.
+        """
+        res = subprocess.run(
+            ["docker", "compose", "run", "--rm", "--no-deps", "db-init"], capture_output=True, text=True, check=False
+        )
+        if res.returncode != 0:
+            raise SystemExit(f"[ops] db-init failed: {res.stdout[-500:]} {res.stderr[-500:]}")
 
     def cli(self, *args: str) -> dict[str, Any]:
         res = subprocess.run(
