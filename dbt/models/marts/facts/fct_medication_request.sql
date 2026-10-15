@@ -1,3 +1,10 @@
+-- Indexes serve the API keyset order and its equality filters (src/healthlake/api/app.py).
+{{ config(post_hook=[
+        "create index on {{ this }} ((coalesce(authored_at, '-infinity'::timestamptz)), medication_request_key)",
+        "create index on {{ this }} (medication_code_key, (coalesce(authored_at, '-infinity'::timestamptz)), medication_request_key)",
+        "create index on {{ this }} (patient_key, (coalesce(authored_at, '-infinity'::timestamptz)), medication_request_key)",
+        "analyze {{ this }}"
+    ]) }}
 -- Grain: one medication request identity.
 select
     m.entity_id                                   as medication_request_key,

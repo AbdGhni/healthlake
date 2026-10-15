@@ -51,7 +51,7 @@ def test_import_does_not_touch_network_or_database(monkeypatch: pytest.MonkeyPat
 def test_ingestion_dag_contract(dagbag) -> None:  # type: ignore[no-untyped-def]
     from airflow.sdk import TriggerRule
 
-    dag = dagbag.get_dag("healthlake_ingestion")
+    dag = dagbag.dags["healthlake_ingestion"]
     assert {t.task_id for t in dag.tasks} == EXPECTED_TASKS
     assert dag.max_active_runs == 1
     assert dag.schedule is None
@@ -91,7 +91,7 @@ def test_ingestion_dag_contract(dagbag) -> None:  # type: ignore[no-untyped-def]
 def test_batch_id_param_is_validated(dagbag) -> None:  # type: ignore[no-untyped-def]
     from airflow.sdk import Param
 
-    dag = dagbag.get_dag("healthlake_ingestion")
+    dag = dagbag.dags["healthlake_ingestion"]
     p: Param = dag.params.get_param("batch_id")
     p.resolve("a" * 64)
     with pytest.raises(Exception):  # noqa: B017 - airflow raises ParamValidationError
@@ -99,7 +99,7 @@ def test_batch_id_param_is_validated(dagbag) -> None:  # type: ignore[no-untyped
 
 
 def test_discovery_dag_contract(dagbag) -> None:  # type: ignore[no-untyped-def]
-    dag = dagbag.get_dag("healthlake_discovery")
+    dag = dagbag.dags["healthlake_discovery"]
     assert dag.catchup is False
     assert dag.max_active_runs == 1
     assert dag.schedule == "*/5 * * * *"

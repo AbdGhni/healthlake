@@ -41,6 +41,8 @@ REQUIRED_MODELS = [
     "agg_diagnosis",
     "agg_observation_volume",
     "agg_quality",
+    "agg_summary",
+    "agg_summary_breakdown",
 ]
 
 
@@ -82,6 +84,10 @@ def candidate_processings(conn: psycopg.Connection, must_include: str | None) ->
 def build_snapshot(conn: psycopg.Connection, rid: str, pids: list[str]) -> dict[str, int]:
     """One member per identity: the version from the highest source_revision among the release processings."""
     with conn.transaction():
+        # The members just inserted have no statistics yet in this transaction; with nested loops the planner
+        # walks 1.8 M index probes for the reference join and the dangling check (minutes at the extended
+        # profile). Hash joins take seconds whatever the estimates.
+        conn.execute("SET LOCAL enable_nestloop = off")
         conn.execute("DELETE FROM silver.snapshot_reference WHERE snapshot_id=%s", (rid,))
         conn.execute("DELETE FROM silver.snapshot_member WHERE snapshot_id=%s", (rid,))
         conn.execute(
@@ -106,6 +112,8 @@ def build_snapshot(conn: psycopg.Connection, rid: str, pids: list[str]) -> dict[
             "  WHERE m.snapshot_id=r.snapshot_id AND m.entity_id=r.to_entity_id)",
             (rid,),
         ).fetchone()
+    # dbt plans its models right after this: give it statistics that include the new snapshot rows
+    conn.execute("SELECT silver.analyze_snapshot()")
     return {"members": members[0] if members else 0, "dangling_references": dangling[0] if dangling else 0}
 
 

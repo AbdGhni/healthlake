@@ -13,7 +13,7 @@
 - 2026-10-14: Medication codes for `medicationReference` are resolved from Medication resources of the same processing or from contained resources; Medication from earlier batches is not looked up (documented limit).
 - 2026-10-14: Release id includes a fingerprint of the dbt project and build options (ADR 0004).
 - 2026-10-14: The release gate runs as the publish role (it must read the candidate schema owned by hl_dbt).
-- 2026-10-14: The API role reads only the 15 Gold marts; staging views (which select from Silver) are not granted.
+- 2026-10-14: The API role reads only the Gold marts (15, then 17 with the summary aggregates); staging views (which select from Silver) are not granted.
 - 2026-10-14: Airflow runs the CLI as subprocesses; final_report is the single leaf and fails unless the batch is loaded and its release published (ADR 0005).
 - 2026-10-14: FAB auth manager for Airflow (not the Simple auth manager, which Airflow documents as dev-only).
 - 2026-10-14: Quality catalogue is the source of truth (config/quality-catalog.json); docs generated; code/catalogue consistency tested.
@@ -29,3 +29,9 @@
 - 2026-10-14: CLI in images runs from source on PYTHONPATH through a wrapper (no build backend download at image build).
 - 2026-10-14: Backups never contain role passwords; restore re-applies them from .secrets via db-init.
 - 2026-10-14: Demo scenarios derive from the original nord batch so they never inherit each other's defects.
+- 2026-10-15: Generation streams Synthea bundles from disk (one bundle parsed at a time, files copied by path into the batch). The in-memory version was killed by the OOM killer at 5.7 GB on the extended profile; the streaming version peaks at 1.45 GB with byte-identical batches (demo batch ids unchanged).
+- 2026-10-15: Performance protocol: fresh database and directories for every run; "cold" = PostgreSQL restarted and OS page cache dropped first; "warm" = same run repeated immediately; measurement JSON kept in docs/performance and tables generated from it.
+- 2026-10-15: Found by the extended-profile load test (API p95 above 1 s on 1 M observations): Gold tables had no index and /v1/summary counted every fact on each call. Fix: dbt post-hooks create indexes matching each listing's keyset order and equality filters, then ANALYZE; headline counts are precomputed per release (agg_summary, agg_summary_breakdown) and reconciled with the facts by a dbt test. Releases built before this change are still served (live counts fallback).
+- 2026-10-15: Found by the extended run: the snapshot took 200 s (row-by-row foreign-key checks on 1.8 M members, nested loops on a table without statistics). Migration 0008 drops the snapshot_member -> resource_version key (members come from a join with that table, which is never deleted from) and the build disables nested loops in its transaction: 50 s.
+- 2026-10-15: Found by the demo scenarios on the demo profile: a second release was planned by dbt before autovacuum analyzed the new snapshot rows, and two models ran for more than 13 minutes. Migration 0009 adds `silver.analyze_snapshot()` (SECURITY DEFINER, executable by the ingestion role only), called at the end of every snapshot build (2.2 s at 1.8 M members).
+- 2026-10-15: DAG tests read `dagbag.dags[...]` instead of `get_dag()`, which queries the Airflow metadata database in Airflow 3 and failed without one (as in CI).

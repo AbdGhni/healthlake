@@ -1,0 +1,94 @@
+{
+  "label": "demo-cold",
+  "machine": {
+    "cpu": "x86_64",
+    "cpus": 2,
+    "python": "3.12.3",
+    "kernel": "6.18.44-fc-v114"
+  },
+  "batches": [
+    {
+      "source_id": "horizon-central",
+      "status": "succeeded",
+      "wall_s": 122.32,
+      "peak_rss_mb": 1870.8,
+      "received": 87326,
+      "accepted": 43047,
+      "rejected": 0,
+      "out_of_scope": 44279,
+      "steps_s": {
+        "archive": 1.41,
+        "adapt": 6.21,
+        "validate+resolve+classify": 67.28,
+        "normalize": 16.49,
+        "load": 20.48,
+        "finish": 0.06
+      },
+      "work_dir_mb": 581
+    },
+    {
+      "source_id": "horizon-nord",
+      "status": "succeeded",
+      "wall_s": 39.9,
+      "peak_rss_mb": 911.5,
+      "received": 32278,
+      "accepted": 32278,
+      "rejected": 0,
+      "out_of_scope": 0,
+      "steps_s": {
+        "archive": 0.07,
+        "adapt": 1.26,
+        "validate+resolve+classify": 22.7,
+        "normalize": 5.77,
+        "load": 9.11,
+        "finish": 0.03
+      },
+      "work_dir_mb": 158
+    },
+    {
+      "source_id": "horizon-sud",
+      "status": "succeeded",
+      "wall_s": 48.58,
+      "peak_rss_mb": 985.7,
+      "received": 40507,
+      "accepted": 40507,
+      "rejected": 0,
+      "out_of_scope": 0,
+      "steps_s": {
+        "archive": 0.14,
+        "adapt": 1.38,
+        "validate+resolve+classify": 26.18,
+        "normalize": 7.41,
+        "load": 12.39,
+        "finish": 0.05
+      },
+      "work_dir_mb": 199
+    }
+  ],
+  "release": {
+    "build_snapshot_s": 2.95,
+    "snapshot_members": 160111,
+    "dbt_build_s": 16.89,
+    "dbt_build_peak_rss_mb": 142.6,
+    "dbt_docs_s": 5.99,
+    "quality_gate_s": 0.99,
+    "publish_s": 0.33,
+    "gate_status": "gate_passed",
+    "gold_rows": {
+      "patients": 328,
+      "encounters": 12206,
+      "observations": 85483,
+      "components": 38355,
+      "conditions": 7493,
+      "medication_requests": 8670
+    }
+  },
+  "pipeline_total_s": 239.2,
+  "database_size_mb": 948,
+  "dirs_mb": {
+    "landing": 271,
+    "lake": 271,
+    "work": 939,
+    "artifacts": 11
+  }
+}

@@ -93,10 +93,13 @@ def run_synthea(
     }
 
 
-def collect_fhir(out_dir: Path) -> dict[str, bytes]:
-    """Return {relative name: bytes} for Synthea FHIR bundles, deterministic names."""
+def collect_fhir(out_dir: Path) -> dict[str, Path]:
+    """Return {relative name: path} for Synthea FHIR bundles, deterministic names.
+
+    Paths, not contents: the extended profile holds several GB of bundles, read one file at a time downstream.
+    """
     fhir = out_dir / "fhir"
-    files: dict[str, bytes] = {}
+    files: dict[str, Path] = {}
     for p in sorted(fhir.glob("*.json")):
         name = p.name
         if name.startswith("hospitalInformation"):
@@ -105,5 +108,5 @@ def collect_fhir(out_dir: Path) -> dict[str, bytes]:
             name = "practitionerInformation.json"
         else:
             name = f"patients/{name}"
-        files[name] = p.read_bytes()
+        files[name] = p
     return files

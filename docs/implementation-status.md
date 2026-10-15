@@ -100,14 +100,33 @@ Plan, locked dependencies, Synthea 4.0.0 and HL7 validator 7.0.1 pinned, migrati
   produced 3 extra validation issues on their stub resource.
 - Not verified: image builds, compose up, Airflow in containers, PostgreSQL 17, the docker runner of demo/backup.
 
-## Tests (all run, all pass): 79 (app venv) + 12 (Airflow venv) + 10 (dashboard venv)
+## Phase 12: end-to-end, extended profile, performance (done, verified without Docker)
+- Five demo scenarios pass on the **demo profile** on a fresh database (local runner); screenshots recaptured
+  from that state.
+- Performance measured with a reproducible protocol (fresh database per run; cold = PostgreSQL restart + page
+  cache dropped): generation, per-step pipeline time, peak memory, database and directory sizes, API latency
+  with 5 clients, cold and warm, demo and extended (1 000 patients per source) profiles. JSON results and the
+  analysis are in docs/performance.
+- Extended pipeline: 1.79 M resources in 1 841 s; API p95 under 80 ms on 1 M observations.
+- Defects found and fixed (each re-measured or tested):
+  - OOM in generation (now streamed from disk);
+  - missing Gold indexes and live summary counts (dbt index hooks, `agg_summary`, code-key filter);
+  - slow snapshot (migration 0008);
+  - stale statistics before dbt (migration 0009);
+  - DAG tests that needed an Airflow metadata database.
+- Test report: docs/test-report.md.
+
+## Phase 13: documentation and portfolio (drafted during phase 12)
+- English README; docs/architecture.md (6 diagrams and the ERD); generated docs/data-dictionary.md;
+  docs/known-limits.md; docs/portfolio (5-minute demo, 15-minute talk, CV and LinkedIn texts in English and
+  French, interview Q&A, extension backlog).
+
+## Tests (all run, all pass): 81 (app venv) + 12 (Airflow venv) + 10 (dashboard venv); 100 dbt data tests
 - Airflow venv: 12 DAG tests (import without network/DB, task contract, single leaf, retries, pools, params,
   exit-code mapping, deterministic run ids).
-- unit 21, integration 35 (incl. 7 release tests with real dbt builds: happy path, rebuild idempotence, switch,
-  failed gate keeps the active release, blocked processing, crash points 4-6, retention), earlier integration 28 (migrations + section 19.1 data cases), recovery 5 (crash points 1-3, hard kill,
-  concurrent attempts), fhir 1 (real HL7 validator), config/CLI 3.
+- App venv by file: unit/config 27, integration 44 (ingestion cases 24, migrations 6, observability 6, release 8
+  with real dbt builds), recovery 7, API 2 scenario tests, FHIR 1 (real HL7 validator). Details: docs/test-report.md.
 - ruff, ruff format, mypy --strict: clean.
 
 ## Not verified
 - PostgreSQL 17, Java 17, Docker images (no daemon in the sandbox).
-- Extended profile (1 000 patients) not run yet (planned in phase 12).

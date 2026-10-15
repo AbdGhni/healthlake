@@ -46,6 +46,14 @@ def test_ingest_role_cannot_create_schema(initialized_db: dict[str, str]) -> Non
         conn.execute("CREATE SCHEMA release_0000000000000000")
 
 
+def test_only_ingest_can_refresh_snapshot_statistics(initialized_db: dict[str, str]) -> None:
+    """The ingestion role analyzes the snapshot tables through one SECURITY DEFINER function (migration 0009)."""
+    with connect("ingest") as conn:
+        conn.execute("SELECT silver.analyze_snapshot()")
+    with connect("api") as conn, pytest.raises(psycopg.errors.InsufficientPrivilege):
+        conn.execute("SELECT silver.analyze_snapshot()")
+
+
 def test_active_release_is_singleton(initialized_db: dict[str, str]) -> None:
     with connect("owner") as conn:
         with pytest.raises(psycopg.errors.CheckViolation):

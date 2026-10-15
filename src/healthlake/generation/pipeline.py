@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import tempfile
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -21,37 +22,42 @@ def generate(profile: str, revision: int, jar: str, only: list[str] | None = Non
         if only and src["source_id"] not in only:
             continue
         s = src["synthea"]
+        # everything below runs while Synthea's output still exists: bundles are read from disk one at a time
         with tempfile.TemporaryDirectory(dir=paths().work) as tmp:
             gen = run_synthea(Path(jar), Path(tmp) / "synthea", s["seed"], s["clinician_seed"], population, s["state"])
             fhir = collect_fhir(Path(tmp) / "synthea")
-        gen["parameters"]["profile"] = profile
-        if src["source_format"] == "fhir-r4-bundle":
-            files = fhir
-            mime = dict.fromkeys(files, "application/fhir+json")
-        else:
-            rows = extract_rows(fhir)
-            files = to_csv_files(rows) if src["source_format"] == "horizon-csv-v1" else to_json_files(rows)
-            mime = {}
-            gen["parameters"]["derivation"] = f"healthlake.generation.derive:{src['source_format']}"
-        patients = sum(1 for k in fhir if k.startswith("patients/"))
-        final, bid = write_batch(
-            paths().landing,
-            src["source_id"],
-            revision,
-            src["source_format"],
-            src["schema_version"],
-            prof["reference_date"],
-            gen,
-            files,
-            mime,
-        )
+            gen["parameters"]["profile"] = profile
+            files: Mapping[str, bytes | Path]
+            if src["source_format"] == "fhir-r4-bundle":
+                files = fhir
+                mime = dict.fromkeys(files, "application/fhir+json")
+            else:
+                rows = extract_rows(fhir)
+                files = to_csv_files(rows) if src["source_format"] == "horizon-csv-v1" else to_json_files(rows)
+                del rows
+                mime = {}
+                gen["parameters"]["derivation"] = f"healthlake.generation.derive:{src['source_format']}"
+            patients = sum(1 for k in fhir if k.startswith("patients/"))
+            final, bid = write_batch(
+                paths().landing,
+                src["source_id"],
+                revision,
+                src["source_format"],
+                src["schema_version"],
+                prof["reference_date"],
+                gen,
+                files,
+                mime,
+            )
+            n_files = len(files)
+            del files
         out.append(
             {
                 "source_id": src["source_id"],
                 "batch_id": bid,
                 "path": str(final),
                 "patients_exported": patients,
-                "files": len(files),
+                "files": n_files,
             }
         )
     return {"profile": profile, "revision": revision, "batches": out}

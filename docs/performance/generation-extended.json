@@ -1,0 +1,34 @@
+{
+  "label": "generation-extended",
+  "wall_s": 1270.76,
+  "peak_rss_mb": 1454.0,
+  "exit": 0,
+  "batch_ids": [
+    "c27b589bd72e5f6ce714c8324a9335b25935dc88f89daeaac8c8ceb0aa7bca03",
+    "b33573fcccbf2ec16f9e89381d0f23a1d002ace8bc741912cceef12ca93d8c3c",
+    "a7196c1f77446fecfc5d93736f0cefcd2ca6f1a58e0089e5b97084c7619876c8"
+  ],
+  "batches": [
+    {
+      "batch_id": "c27b589bd72e5f6ce714c8324a9335b25935dc88f89daeaac8c8ceb0aa7bca03",
+      "files": 1136,
+      "path": "/home/claude/perf/extended/landing/horizon-central/rev-000001",
+      "patients_exported": 1134,
+      "source_id": "horizon-central"
+    },
+    {
+      "batch_id": "b33573fcccbf2ec16f9e89381d0f23a1d002ace8bc741912cceef12ca93d8c3c",
+      "files": 8,
+      "path": "/home/claude/perf/extended/landing/horizon-nord/rev-000001",
+      "patients_exported": 1170,
+      "source_id": "horizon-nord"
+    },
+    {
+      "batch_id": "a7196c1f77446fecfc5d93736f0cefcd2ca6f1a58e0089e5b97084c7619876c8",
+      "files": 25,
+      "path": "/home/claude/perf/extended/landing/horizon-sud/rev-000001",
+      "patients_exported": 1157,
+      "source_id": "horizon-sud"
+    }
+  ]
+}

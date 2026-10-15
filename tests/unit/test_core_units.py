@@ -64,6 +64,18 @@ def test_manifest_written_last_and_batch_id_matches(tmp_path: Path) -> None:
     assert names == ["a.csv", "b.csv", "manifest.json"]
 
 
+def test_batch_from_paths_equals_batch_from_bytes(tmp_path: Path) -> None:
+    """Large batches are written from files on disk; the result must be byte-identical to the in-memory path."""
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "a.json").write_bytes(b'{"resourceType": "Bundle"}')
+    args = ("horizon-central", 1, "fhir-r4-bundle", "fhir-r4", "2026-01-01", f.GEN)
+    _, from_bytes = write_batch(tmp_path / "l1", *args, {"patients/a.json": b'{"resourceType": "Bundle"}'})
+    final, from_paths = write_batch(tmp_path / "l2", *args, {"patients/a.json": src / "a.json"})
+    assert from_paths == from_bytes
+    assert (final / "patients" / "a.json").read_bytes() == b'{"resourceType": "Bundle"}'
+
+
 def test_symlink_refused(tmp_path: Path) -> None:
     d = tmp_path / "batch"
     d.mkdir()

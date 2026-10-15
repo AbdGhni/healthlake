@@ -1,0 +1,69 @@
+{
+  "label": "api-demo-cold",
+  "clients": 5,
+  "rounds": 2,
+  "requests": 90,
+  "errors": 0,
+  "error_samples": [],
+  "duration_s": 1.4,
+  "throughput_rps": 64.4,
+  "aggregates_ms": {
+    "p50": 52.0,
+    "p95": 68.0,
+    "p99": 128.7,
+    "mean": 54.9
+  },
+  "lists_ms": {
+    "p50": 56.0,
+    "p95": 77.0,
+    "p99": 97.0,
+    "mean": 57.9
+  },
+  "per_endpoint_ms": {
+    "/v1/summary": {
+      "n": 10,
+      "p50": 48.3,
+      "p95": 67.7
+    },
+    "/v1/diagnoses?limit=50": {
+      "n": 10,
+      "p50": 52.0,
+      "p95": 128.7
+    },
+    "/v1/observations?group_by=code&limit=50": {
+      "n": 10,
+      "p50": 52.0,
+      "p95": 59.8
+    },
+    "/v1/encounters?group_by=day&limit=200": {
+      "n": 10,
+      "p50": 53.0,
+      "p95": 111.7
+    },
+    "/v1/quality": {
+      "n": 10,
+      "p50": 51.9,
+      "p95": 60.1
+    },
+    "/v1/patients?limit=50": {
+      "n": 10,
+      "p50": 51.8,
+      "p95": 66.5
+    },
+    "/v1/encounters?limit=50&source_id=horizon-nord": {
+      "n": 10,
+      "p50": 56.4,
+      "p95": 97.0
+    },
+    "/v1/observations?limit=50&code=8867-4": {
+      "n": 10,
+      "p50": 56.3,
+      "p95": 60.8
+    },
+    "/v1/medication-requests?limit=50": {
+      "n": 10,
+      "p50": 56.1,
+      "p95": 71.2
+    }
+  }
+}

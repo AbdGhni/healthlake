@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import shutil
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,16 @@ def batch_dir_name(revision: int) -> str:
     return f"rev-{revision:06d}"
 
 
+def _size_and_sha256(data: bytes | Path) -> tuple[int, str]:
+    if not isinstance(data, Path):
+        return len(data), hashlib.sha256(data).hexdigest()
+    h = hashlib.sha256()
+    with data.open("rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return data.stat().st_size, h.hexdigest()
+
+
 def write_batch(
     landing: Path,
     source_id: str,
@@ -27,27 +38,21 @@ def write_batch(
     schema_version: str,
     reference_date: str,
     generator: dict[str, Any],
-    files: dict[str, bytes],
+    files: Mapping[str, bytes | Path],
     mime_overrides: dict[str, str] | None = None,
 ) -> tuple[Path, str]:
     """Write files + manifest under landing/<source_id>/.tmp-rev-N then rename to rev-N.
 
+    File values are bytes or paths to copy (large FHIR batches are never loaded whole).
     Returns (final_dir, batch_id). If rev-N exists with identical content, it is reused; if it
     exists with different content, ConflictError (a revision is immutable).
     """
     mime_overrides = mime_overrides or {}
     entries = []
     for rel in sorted(files):
-        data = files[rel]
+        size, digest = _size_and_sha256(files[rel])
         mime = mime_overrides.get(rel) or MIME_BY_SUFFIX[Path(rel).suffix]
-        entries.append(
-            {
-                "path": rel,
-                "mime_type": mime,
-                "size_bytes": len(data),
-                "sha256": hashlib.sha256(data).hexdigest(),
-            }
-        )
+        entries.append({"path": rel, "mime_type": mime, "size_bytes": size, "sha256": digest})
     manifest = {
         "manifest_version": 1,
         "source_id": source_id,
@@ -79,7 +84,10 @@ def write_batch(
     for rel, data in files.items():
         target = tmp / rel
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(data)
+        if isinstance(data, Path):
+            shutil.copyfile(data, target)
+        else:
+            target.write_bytes(data)
     with (tmp / MANIFEST_NAME).open("wb") as f:  # manifest is written last
         f.write(raw)
         f.flush()

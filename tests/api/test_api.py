@@ -158,6 +158,9 @@ def test_ordered_scenario(env: dict[str, Any]) -> None:
     assert [d["conditions"] for d in dx] == sorted((d["conditions"] for d in dx), reverse=True)
     med = c.get("/v1/medication-requests", headers=h(env), params={"code": "860975"}).json()["data"]
     assert len(med) == 5 and med[0]["medication"]["code"] == "860975"
+    # an unknown code matches no code key: empty page, not an error
+    none = c.get("/v1/observations", headers=h(env), params={"code": "0000-0"}).json()
+    assert none["data"] == [] and none["page"]["next_cursor"] is None
     # date range [start, end): central encounters start 2025-03-01T09:00Z
     rng = c.get("/v1/encounters", headers=h(env), params={"start": "2025-03-01T09:00:00Z", "end": "2025-03-02"})
     assert len(rng.json()["data"]) == 5

@@ -25,6 +25,12 @@ models:
       +materialized: view
     marts:
       +materialized: table
+      # fresh statistics before the release gate and the API read the tables; facts analyze in their own
+      # post-hooks, after their expression indexes exist (ANALYZE collects expression-index statistics)
+      dimensions:
+        +post-hook: "analyze {{ this }}"
+      aggregates:
+        +post-hook: "analyze {{ this }}"
 
 seeds:
   healthlake:

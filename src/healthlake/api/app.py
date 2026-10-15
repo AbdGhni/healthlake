@@ -165,7 +165,10 @@ def _paged(
     limit: int,
     cursor: str | None,
     release_id: str | None,
+    code_col: str | None = None,
 ) -> dict[str, Any]:
+    """One page of a listing. With `code_col`, the `code` filter is resolved to code keys of the release first, so
+    that a single key filters on the indexed column and the index returns rows already in keyset order."""
     fh = filters_hash(filters)
     after = None
     if cursor:
@@ -179,6 +182,20 @@ def _paged(
             raise ApiError(422, "cursor_mismatch", "cursor is pinned to another release")
         release_id, after = payload["r"], payload["k"]
     rel = _release(release_id)
+    if code_col and params.get("code"):
+        keys = [
+            r["code_key"]
+            for r in db.fetch_all(
+                f"SELECT code_key FROM {db.quote_schema(rel.schema)}.dim_code WHERE code = :code",
+                {"code": params["code"]},
+            )
+        ]
+        if len(keys) == 1:
+            where = [*where, f"{code_col} = :code_key"]
+            params = {**params, "code_key": keys[0]}
+        else:
+            where = [*where, f"{code_col} = ANY(:code_keys)"]
+            params = {**params, "code_keys": keys}
     data, next_key = run_page(listing, rel.schema, where, params, limit, after)
     nxt = encode_cursor({"v": 1, "r": rel.release_id, "e": endpoint, "f": fh, "k": next_key}) if next_key else None
     return {"release_id": rel.release_id, "data": data, "page": {"limit": limit, "next_cursor": nxt}}
@@ -223,29 +240,47 @@ def releases(_: Ops, limit: LimitQ = DEFAULT_LIMIT) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------- summary
+LIVE_SUMMARY_SQL = (
+    "SELECT (SELECT count(*) FROM {s}.dim_patient) AS patients,"
+    " (SELECT count(*) FROM {s}.fct_encounter) AS encounters,"
+    " (SELECT count(*) FROM {s}.fct_condition) AS conditions,"
+    " (SELECT count(*) FROM {s}.agg_diagnosis) AS distinct_diagnosis_codes,"
+    " (SELECT count(*) FROM {s}.fct_observation) AS observations,"
+    " (SELECT count(*) FROM {s}.fct_observation_component) AS observation_components,"
+    " (SELECT count(*) FROM {s}.fct_medication_request) AS medication_requests,"
+    " (SELECT min(start_at) FROM {s}.fct_encounter) AS first_encounter_at,"
+    " (SELECT max(start_at) FROM {s}.fct_encounter) AS last_encounter_at"
+)
+LIVE_BREAKDOWN_SQL = (
+    "SELECT 'category' AS breakdown, encounter_category AS item, NULL::bigint AS patients, count(*) AS encounters"
+    " FROM {s}.fct_encounter GROUP BY 2"
+    " UNION ALL SELECT 'source', p.source_id, p.patients, coalesce(e.encounters, 0) FROM"
+    " (SELECT source_id, count(*) AS patients FROM {s}.dim_patient GROUP BY 1) p LEFT JOIN"
+    " (SELECT source_id, count(*) AS encounters FROM {s}.fct_encounter GROUP BY 1) e USING (source_id)"
+    " ORDER BY 1, 2"
+)
+
+
 @app.get("/v1/summary", response_model=m.Summary, tags=["analytics"])
 def summary(_: Read, release_id: ReleaseQ = None) -> dict[str, Any]:
     rel = _release(release_id)
     s = db.quote_schema(rel.schema)
-    row = db.fetch_one(
-        f"SELECT (SELECT count(*) FROM {s}.dim_patient) AS patients,"
-        f" (SELECT count(*) FROM {s}.fct_encounter) AS encounters,"
-        f" (SELECT count(*) FROM {s}.fct_condition) AS conditions,"
-        f" (SELECT count(*) FROM {s}.agg_diagnosis) AS distinct_diagnosis_codes,"
-        f" (SELECT count(*) FROM {s}.fct_observation) AS observations,"
-        f" (SELECT count(*) FROM {s}.fct_observation_component) AS observation_components,"
-        f" (SELECT count(*) FROM {s}.fct_medication_request) AS medication_requests,"
-        f" (SELECT min(start_at) FROM {s}.fct_encounter) AS first_encounter_at,"
-        f" (SELECT max(start_at) FROM {s}.fct_encounter) AS last_encounter_at"
-    )
+    # counts are precomputed per release by dbt (agg_summary, reconciled with the facts by a dbt test);
+    # releases built before agg_summary existed are still served, from the facts
+    pre = db.fetch_one("SELECT to_regclass(:t) IS NOT NULL AS ok", {"t": f"{rel.schema}.agg_summary"})
+    row = db.fetch_one(f"SELECT * FROM {s}.agg_summary" if pre and pre["ok"] else LIVE_SUMMARY_SQL.format(s=s))
     assert row is not None
-    cats = db.fetch_all(f"SELECT encounter_category, count(*) AS n FROM {s}.fct_encounter GROUP BY 1 ORDER BY 1")
-    by_source = db.fetch_all(
-        f"SELECT p.source_id, p.patients, coalesce(e.encounters, 0) AS encounters FROM"
-        f" (SELECT source_id, count(*) AS patients FROM {s}.dim_patient GROUP BY 1) p LEFT JOIN"
-        f" (SELECT source_id, count(*) AS encounters FROM {s}.fct_encounter GROUP BY 1) e USING (source_id)"
-        f" ORDER BY 1"
+    parts = db.fetch_all(
+        f"SELECT breakdown, item, patients, encounters FROM {s}.agg_summary_breakdown ORDER BY 1, 2"
+        if pre and pre["ok"]
+        else LIVE_BREAKDOWN_SQL.format(s=s)
     )
+    cats = [{"encounter_category": p["item"], "n": p["encounters"]} for p in parts if p["breakdown"] == "category"]
+    by_source = [
+        {"source_id": p["item"], "patients": p["patients"], "encounters": p["encounters"]}
+        for p in parts
+        if p["breakdown"] == "source"
+    ]
     return {
         "release_id": rel.release_id,
         "published_at": rel.published_at,
@@ -531,8 +566,9 @@ def observations(
             where.append("a.code = :code")
             params["code"] = code
         return _paged(OBS_VOLUME, "observations:code", filters, where, params, limit, cursor, release_id)
+    if code:
+        params["code"] = code  # resolved to code keys in _paged
     for col, key, val in (
-        ("c.code", "code", code),
         ("o.source_id", "source_id", source_id),
         ("o.patient_key", "patient_key", patient_key),
         ("o.category_code", "category", category),
@@ -546,7 +582,7 @@ def observations(
     if e:
         where.append("o.effective_at < :end")
         params["end"] = e
-    page = _paged(OBSERVATIONS, "observations", filters, where, params, limit, cursor, release_id)
+    page = _paged(OBSERVATIONS, "observations", filters, where, params, limit, cursor, release_id, "o.code_key")
     for r in page["data"]:
         r["code"] = {"system": r.pop("c_system"), "code": r.pop("c_code"), "display": r.pop("c_display")}
         v = {"system": r.pop("v_system"), "code": r.pop("v_code"), "display": r.pop("v_display")}
@@ -595,8 +631,9 @@ def medication_requests(
     s, e = _range(start, end)
     where: list[str] = []
     params: dict[str, Any] = {}
+    if code:
+        params["code"] = code  # resolved to code keys in _paged
     for col, key, val in (
-        ("c.code", "code", code),
         ("r.source_id", "source_id", source_id),
         ("r.patient_key", "patient_key", patient_key),
         ("r.status", "status", status),
@@ -611,7 +648,9 @@ def medication_requests(
         where.append("r.authored_at < :end")
         params["end"] = e
     filters = {"code": code, "source_id": source_id, "patient_key": patient_key, "status": status, "start": s, "end": e}
-    page = _paged(MEDS, "medication-requests", filters, where, params, limit, cursor, release_id)
+    page = _paged(
+        MEDS, "medication-requests", filters, where, params, limit, cursor, release_id, "r.medication_code_key"
+    )
     for r in page["data"]:
         med = {"system": r.pop("m_system"), "code": r.pop("m_code"), "display": r.pop("m_display")}
         r["medication"] = med if med["code"] else None

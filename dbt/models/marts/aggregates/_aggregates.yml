@@ -20,3 +20,23 @@ models:
     description: "Grain: one processing in the release, with reconciliation counters and issue counts."
     columns:
       - {name: processing_id, data_tests: [unique, not_null]}
+  - name: agg_summary
+    description: "Grain: one row per release. Headline counts for /v1/summary, computed at build time."
+    columns:
+      - {name: patients, description: "Rows of dim_patient.", data_tests: [not_null]}
+      - {name: encounters, description: "Rows of fct_encounter.", data_tests: [not_null]}
+      - {name: observations, description: "Rows of fct_observation.", data_tests: [not_null]}
+      - {name: first_encounter_at, description: "Earliest encounter start (UTC)."}
+      - {name: last_encounter_at, description: "Latest encounter start (UTC)."}
+  - name: agg_summary_breakdown
+    description: "Grain: (breakdown, item). Encounters per category; patients and encounters per source."
+    data_tests:
+      - unique_combination: {arguments: {columns: [breakdown, item]}}
+    columns:
+      - name: breakdown
+        description: "category or source."
+        data_tests:
+          - not_null
+          - accepted_values: {arguments: {values: [category, source]}}
+      - {name: item, description: "Encounter category or source id.", data_tests: [not_null]}
+      - {name: encounters, description: "Encounters in the item.", data_tests: [not_null]}

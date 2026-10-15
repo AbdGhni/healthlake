@@ -11,7 +11,8 @@ import csv
 import io
 import json
 from collections import defaultdict
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
+from pathlib import Path
 from typing import Any
 
 NPI = "http://hl7.org/fhir/sid/us-npi"
@@ -96,9 +97,11 @@ CSV_COLUMNS: dict[str, list[str]] = {
 }
 
 
-def iter_resources(files: dict[str, bytes]) -> Iterator[dict[str, Any]]:
+def iter_resources(files: Mapping[str, bytes | Path]) -> Iterator[dict[str, Any]]:
+    """Resources of the bundles in name order; one bundle in memory at a time when given paths."""
     for name in sorted(files):
-        bundle = json.loads(files[name])
+        data = files[name]
+        bundle = json.loads(data.read_bytes() if isinstance(data, Path) else data)
         for entry in bundle.get("entry", []):
             yield entry["resource"]
 
@@ -152,15 +155,15 @@ def _value(o: dict[str, Any]) -> dict[str, str]:
     return out
 
 
-def extract_rows(files: dict[str, bytes]) -> dict[str, list[dict[str, str]]]:
+def extract_rows(files: Mapping[str, bytes | Path]) -> dict[str, list[dict[str, str]]]:
     rows: dict[str, list[dict[str, str]]] = defaultdict(list)
     meds: dict[str, tuple[str, str, str]] = {}
-    resources = list(iter_resources(files))
-    for r in resources:
+    # two streaming passes (Medication codes first) instead of holding every parsed resource in memory
+    for r in iter_resources(files):
         if r["resourceType"] == "Medication":
             meds[r["id"]] = _coding(r.get("code"))
     seen: set[tuple[str, str]] = set()
-    for r in resources:
+    for r in iter_resources(files):
         t, rid = r["resourceType"], r["id"]
         if (t, rid) in seen:
             continue

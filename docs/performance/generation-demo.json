@@ -1,0 +1,34 @@
+{
+  "label": "generation-demo",
+  "wall_s": 205.42,
+  "peak_rss_mb": 1320.5,
+  "exit": 0,
+  "batch_ids": [
+    "0f473aea5abd217daff7b071c5cae5e705735085b038e099aa8f66f11b6ea230",
+    "6f430e0b87e650b2b45714290901c3c7bdedc0d7ff4cd20cfd3339b0e03bed1d",
+    "47d38f7d98b745a28ccfe713b6e9c534f32b80970a56a267273304fb1fcd84ef"
+  ],
+  "batches": [
+    {
+      "batch_id": "0f473aea5abd217daff7b071c5cae5e705735085b038e099aa8f66f11b6ea230",
+      "files": 112,
+      "path": "/home/claude/perf/demo/landing/horizon-central/rev-000001",
+      "patients_exported": 110,
+      "source_id": "horizon-central"
+    },
+    {
+      "batch_id": "6f430e0b87e650b2b45714290901c3c7bdedc0d7ff4cd20cfd3339b0e03bed1d",
+      "files": 8,
+      "path": "/home/claude/perf/demo/landing/horizon-nord/rev-000001",
+      "patients_exported": 110,
+      "source_id": "horizon-nord"
+    },
+    {
+      "batch_id": "47d38f7d98b745a28ccfe713b6e9c534f32b80970a56a267273304fb1fcd84ef",
+      "files": 4,
+      "path": "/home/claude/perf/demo/landing/horizon-sud/rev-000001",
+      "patients_exported": 108,
+      "source_id": "horizon-sud"
+    }
+  ]
+}

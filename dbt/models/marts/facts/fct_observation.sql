@@ -1,3 +1,10 @@
+-- Indexes serve the API keyset order and its equality filters (src/healthlake/api/app.py).
+{{ config(post_hook=[
+        "create index on {{ this }} ((coalesce(effective_at, '-infinity'::timestamptz)), observation_key)",
+        "create index on {{ this }} (code_key, (coalesce(effective_at, '-infinity'::timestamptz)), observation_key)",
+        "create index on {{ this }} (patient_key, (coalesce(effective_at, '-infinity'::timestamptz)), observation_key)",
+        "analyze {{ this }}"
+    ]) }}
 -- Grain: one observation identity. value[x] kept explicit; no imputation.
 select
     o.entity_id                                  as observation_key,

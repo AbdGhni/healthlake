@@ -1,0 +1,15 @@
+{
+  "label": "api-extended-before-indexes",
+  "note": "First run of scripts/perf_api.py on the extended release, before Gold indexes and the precomputed summary (2026-10-15). Copied from the command output of that run; the JSON files written by that run were overwritten by the re-run after the fix.",
+  "clients": 5,
+  "cold": {"rounds": 2, "requests": 90, "errors": 0, "throughput_rps": 15.2,
+           "aggregates_ms": {"p50": 84.7, "p95": 1068.1, "p99": 1441.7}, "lists_ms": {"p50": 302.5, "p95": 771.7, "p99": 875.7}},
+  "warm": {"rounds": 40, "requests": 1800, "errors": 0, "throughput_rps": 17.4,
+           "aggregates_ms": {"p50": 79.9, "p95": 1020.0, "p99": 1276.8}, "lists_ms": {"p50": 260.1, "p95": 772.1, "p99": 1199.9},
+           "per_endpoint_ms": {
+             "/v1/summary": {"p50": 892.0, "p95": 1276.8},
+             "/v1/encounters?limit=50&source_id=horizon-nord": {"p50": 215.1, "p95": 331.0},
+             "/v1/observations?limit=50&code=8867-4": {"p50": 616.0, "p95": 1164.3},
+             "/v1/medication-requests?limit=50": {"p50": 300.0, "p95": 504.2}
+           }}
+}

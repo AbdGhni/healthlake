@@ -5,6 +5,8 @@ Real captures of the delivered dashboard and API docs, taken with `scripts/captu
 
 | Capture | Data |
 |---|---|
-| current set (2026-10-14) | **test** profile (3 Synthea patients requested per source, 10 exported), release `c87706efd0af`, sandbox run without Docker |
+| current set (2026-10-15) | **demo** profile (100 Synthea patients requested per source, 328 exported) after the five demo scenarios (`scripts/demo.py --scenario all --runner local --profile demo`), active release `36d9ac94915b`; sandbox run without Docker |
 
-They are regenerated on the demo profile during the end-to-end phase; this file says which data each set shows.
+The Data Quality page shows the quarantined row of the `quarantine` scenario (revision 2 of horizon-nord) and the
+Pipeline Operations page shows the blocked batch, the injected crash and the refused release of the other
+scenarios.
