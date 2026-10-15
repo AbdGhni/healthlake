@@ -38,24 +38,39 @@ def main() -> int:
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     out = Path(a.out) / stamp
     out.mkdir(parents=True)
-    paused = False
+    paused: list[str] = []
+    running_attempts = (
+        "SELECT count(*) FROM ctl.attempt WHERE status='running' AND started_at > now() - interval '6 hours'"
+    )
+    active_runs = "SELECT count(*) FROM dag_run WHERE dag_id='healthlake_ingestion' AND state IN ('queued','running')"
+
+    def busy() -> bool:
+        if r.psql(a.db, running_attempts) != "0":
+            return True
+        return r.name == "docker" and r.psql("airflow", active_runs) != "0"
+
     try:
+        # Stop new work first (discovery), let in-flight ingestion runs finish, then pause ingestion. Pausing the
+        # ingestion DAG while one of its runs is in flight would freeze that run and its attempt (found by CI).
         if r.name == "docker":
-            for d in DAGS:
-                airflow("dags", "pause", d)
-            paused = True
-            print("[backup] Airflow DAGs paused; waiting for running attempts to finish")
+            airflow("dags", "pause", "healthlake_discovery")
+            paused.append("healthlake_discovery")
+            print("[backup] discovery paused; waiting for in-flight ingestion runs and attempts to finish")
         deadline = time.time() + a.wait_seconds
-        while (
-            r.psql(
-                a.db,
-                "SELECT count(*) FROM ctl.attempt WHERE status='running' AND started_at > now() - interval '6 hours'",
-            )
-            != "0"
-        ):
-            if time.time() > deadline:
-                raise SystemExit("[backup] attempts still running; retry later (nothing was written)")
-            time.sleep(10)
+        while True:
+            while busy():
+                if time.time() > deadline:
+                    raise SystemExit("[backup] attempts still running; retry later (nothing was written)")
+                time.sleep(10)
+            if r.name != "docker":
+                break
+            airflow("dags", "pause", "healthlake_ingestion")
+            paused.append("healthlake_ingestion")
+            if not busy():
+                print("[backup] ingestion paused; no run or attempt in flight")
+                break
+            airflow("dags", "unpause", "healthlake_ingestion")  # a run slipped in: let it finish and retry
+            paused.remove("healthlake_ingestion")
         counts = json.loads(r.psql(a.db, COUNT_SQL))
         r.dump_globals(out / "globals.sql")
         r.dump(a.db, out / "healthlake.dump")
@@ -67,9 +82,9 @@ def main() -> int:
         if after != counts:
             raise SystemExit("[backup] data changed during the backup; retry (consistency check failed)")
     finally:
+        for d in paused:
+            airflow("dags", "unpause", d)
         if paused:
-            for d in DAGS:
-                airflow("dags", "unpause", d)
             print("[backup] Airflow DAGs resumed")
     files = {p.name: {"sha256": sha256_file(p), "bytes": p.stat().st_size} for p in sorted(out.iterdir())}
     manifest = {
