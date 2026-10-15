@@ -27,6 +27,8 @@ jobs:
       - run: .venvs/app/bin/ruff check src tests scripts airflow dashboards
       - run: .venvs/app/bin/ruff format --check src tests scripts airflow dashboards
       - run: .venvs/app/bin/mypy
+      # operator scripts too (yaml/playwright live in other environments)
+      - run: .venvs/app/bin/mypy --strict --ignore-missing-imports scripts/*.py
       - run: .venvs/app/bin/python scripts/gen_quality_catalog.py --check
       - name: dependency audit
         run: for f in app dbt dashboard; do .venvs/app/bin/pip-audit --strict -r requirements/$f.lock --disable-pip --no-deps; done

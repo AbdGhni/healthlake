@@ -23,7 +23,7 @@ ONE_SHOT = ("db-init", "airflow-init")
 def http_ok(url: str) -> bool:
     try:
         with urllib.request.urlopen(url, timeout=3) as r:  # noqa: S310 - fixed loopback URLs
-            return r.status == 200
+            return bool(r.status == 200)
     except (urllib.error.URLError, OSError):
         return False
 

@@ -22,6 +22,7 @@ lint:
 	ruff check src tests scripts airflow dashboards
 	ruff format --check src tests scripts airflow dashboards
 	mypy
+	mypy --strict --ignore-missing-imports scripts/*.py
 
 test:               ## app test suite (needs HEALTHLAKE_TEST_ADMIN_DSN, HEALTHLAKE_DBT_BIN for dbt tests)
 	pytest -q
