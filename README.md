@@ -58,7 +58,7 @@ flowchart LR
   B -->|adapt| F["FHIR R4 resources"]
   F -->|validate, resolve, classify| G{"Processing<br/>gate"}
   G -->|accepted| SV[("Silver<br/>PostgreSQL")]
-  G -->|blocked| Q["Quarantine<br/>quality.issue"]
+  G -->|"rejected rows or blocked batch"| Q["Quarantine and issues<br/>quality.issue"]
   SV -->|snapshot| SN["Deterministic snapshot"]
   SN -->|dbt build| CA[("Candidate schema")]
   CA -->|release gate| P{"Publish<br/>atomic switch"}
@@ -68,7 +68,7 @@ flowchart LR
   AF["Airflow 3<br/>discovery + ingestion DAGs"] -.orchestrates.-> R
   AF -.-> P
 ```
-More diagrams (data flow, Silver model, release lifecycle, DAGs, deployment) are in
+More diagrams (batch lifecycle, record outcomes, release lifecycle, DAGs, deployment, identifiers, ERD) are in
 [docs/architecture.md](docs/architecture.md).
 
 **Stack:** Python 3.12, PostgreSQL 17 (tests also run on 16), dbt-core 1.12 with dbt-postgres, Airflow 3.3
@@ -116,7 +116,7 @@ src/healthlake/        Python package: CLI, ingestion, adapters, validation, Sil
 dbt/                   Gold model (staging, intermediate, marts), seeds, tests
 airflow/dags/          healthlake_discovery, healthlake_ingestion
 dashboards/            Streamlit app (API client only)
-infrastructure/        Dockerfiles, PostgreSQL migrations (0001-0008) and init scripts
+infrastructure/        Dockerfiles, PostgreSQL migrations (0001-0009) and init scripts
 config/                sources, profiles, Synthea properties, artifact lock, quality catalogue
 scripts/               bootstrap, wait_ready, demo, backup, restore, performance measurement
 tests/                 unit, integration, recovery, fhir, api, airflow, dashboard
