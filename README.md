@@ -94,10 +94,10 @@ Then open:
 Credentials are in `.secrets/`, and bootstrap tells you which file holds which credential. `make down` stops the
 stack and keeps the data. `make reset` deletes this project's volumes, after you confirm.
 
-> **Verification status.** The Docker images and the Compose stack are written and `docker compose config`
-> validates. They have **not** been built or started yet: the development sandbox has no Docker daemon. Every
-> component *was* run for real outside containers: the CLI pipeline, dbt, Airflow 3.3 with a LocalExecutor on
-> PostgreSQL, the API under uvicorn, and the dashboard in Chromium. See [Tests and verification](#tests-and-verification).
+> **Verification status.** The full stack runs in GitHub Actions on every push ([CI](.github/workflows/ci.yml),
+> Ubuntu runner, Docker Engine): image build, Trivy scan, `docker compose up` with every health check, Airflow 3
+> in containers, the five demo scenarios through Airflow, and a backup/restore round trip. The app tests also run
+> there on PostgreSQL 17. Docker Desktop on Windows is the intended host but has not been run by the author yet.
 
 ## Demonstration scenarios
 `scripts/demo.py` runs each scenario on the real system and checks its expected outcome:
@@ -167,7 +167,8 @@ The protocol, the per-step times and the analysis are in
 See [SECURITY.md](SECURITY.md).
 
 ## Known limits
-- The Compose stack, the images and PostgreSQL 17 are not verified on a Docker host yet (see above).
+- The stack is verified in CI on Linux (Docker Engine, amd64); Docker Desktop on Windows and arm64 images are
+  not verified yet.
 - HL7 validation of every resource is too slow for a laptop. The full set gets structural validation; the
   official validator audits a sample.
 - Terminology is checked for code presence and system, not against a terminology server.

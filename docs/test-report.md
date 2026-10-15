@@ -5,7 +5,7 @@
 > authorized to process real personal health data.
 
 Last full run: 2026-10-15, development sandbox. Python 3.12.3, PostgreSQL 16.15, dbt-core 1.12.6, Airflow 3.3.2,
-no Docker daemon. Everything below was actually run; what was not run is listed at the end with the command to
+no Docker daemon, plus GitHub Actions for the Docker stack (see below). Everything below was actually run; what was not run is listed at the end with the command to
 run it.
 
 ## Automated suites
@@ -55,11 +55,28 @@ Each fix has a test or a re-measurement.
 
 Defects found in earlier phases are listed in [implementation-status.md](implementation-status.md).
 
-## Not run here
+## Continuous integration (GitHub Actions)
+Every push runs 6 jobs on `ubuntu-24.04`; [run 38810331362](https://github.com/AbdGhni/healthlake/actions/runs/38810331362) passed all of them:
+- lint: ruff and mypy, including the operator scripts;
+- pip-audit;
+- gitleaks over the full history;
+- the app suite on **PostgreSQL 17.11** (80 passed; the one test that needs Java and the HL7 validator is deselected by its marker);
+- the DAG and dashboard suites;
+- **e2e**: build of the 3 images, Trivy scan, `docker compose up` with every health check, the **five demo
+  scenarios through Airflow 3 in containers**, and a **backup and restore** round trip with the Docker runner
+  (Bronze re-hashed, counts reconciled, API smoke test on the restored release).
+
+The first CI runs found 7 defects, all fixed:
+- test fixtures that relied on password-less local sockets;
+- gitleaks-action failing on a first push;
+- jar permissions in the image;
+- Airflow secrets read with a trailing newline;
+- a bind-mounted backup folder;
+- a missing password reset in the Docker restore;
+- a backup that froze in-flight runs.
+
+## Not run
 | Item | Why | Command |
 |---|---|---|
-| Docker images, `docker compose up`, Airflow in containers, demo with the Docker runner | No Docker daemon in the sandbox | `make bootstrap build up demo` |
-| PostgreSQL 17.11 | Sandbox has 16.15 | CI job `tests` (PostgreSQL 17 service), or the Compose stack |
-| CI workflow on GitHub | Repository not pushed (needs your authorisation) | runs on the first push |
-| Trivy image scan | Needs built images | CI job `e2e` |
-| Extended profile through Airflow, extended warm pipeline | Time and disk budget of the sandbox | `docker compose run --rm synthea --profile extended --revision 1`, then the discovery DAG |
+| Docker Desktop on Windows, arm64 images | Only Linux amd64 in CI | `make bootstrap build up demo` |
+| Extended profile through Airflow, extended warm pipeline | Time and disk budget | `docker compose run --rm synthea --profile extended --revision 1`, then the discovery DAG |

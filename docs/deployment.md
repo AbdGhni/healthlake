@@ -49,14 +49,20 @@ mounted at `/run/secrets/*`, read through `*_FILE` variables or Airflow `*_CMD` 
 - **api**: `python:3.12.15-slim-bookworm` (digest) + app.lock; UID 10001; read-only root FS; caps dropped.
 - **dashboard**: same base + dashboard.lock; UID 10001; read-only root FS; caps dropped.
 
-## Verification status (2026-10-14)
+## Verification status (2026-10-15)
 | Item | Status |
 |---|---|
-| `docker compose config` (with and without profile tools) | verified in the sandbox |
-| image digests, Temurin checksum, jar checksums | resolved / verified in the sandbox |
-| every image's Python environment (same lockfiles) | verified as virtualenvs in the sandbox |
-| `docker compose build`, `up`, healthchecks, Airflow in containers | **not verified** (no Docker daemon in the sandbox) |
-| PostgreSQL 17 | **not verified** (tests ran on PostgreSQL 16.15) |
+| `docker compose config` (with and without profile tools) | verified |
+| image digests, Temurin checksum, jar checksums | verified (pinned; checked at build time) |
+| `docker compose build` (3 images), Trivy scan of the API image (HIGH/CRITICAL, fixed) | **verified in CI** |
+| `docker compose up`, all health checks, `db-init` and `airflow-init` | **verified in CI** |
+| Airflow 3.3.2 in containers: the five demo scenarios through the Airflow REST API | **verified in CI** |
+| backup and restore with the Docker runner (`--wipe-project-volumes`), API smoke test after restore | **verified in CI** |
+| app test suite on PostgreSQL 17.11 | **verified in CI** |
+| Docker Desktop on Windows, arm64 images | not verified |
 
-Commands to verify on a Docker machine: the steps above, then `python scripts/demo.py --scenario all` and the
-backup/restore round trip of docs/runbooks/restore.md. The CI `e2e` job runs exactly these.
+CI evidence: [run 38810331362](https://github.com/AbdGhni/healthlake/actions/runs/38810331362) (GitHub Actions, `ubuntu-24.04`). The first CI runs found five
+defects that the sandbox could not reveal, all fixed: image file permissions for the Airflow user, Airflow
+`*_CMD` secrets passed with a trailing newline, backup archives written through a bind mount the container could
+not write to, a missing password reset in the Docker restore path, and a backup that froze in-flight runs by
+pausing the ingestion DAG (see docs/decisions.md).

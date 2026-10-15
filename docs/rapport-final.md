@@ -7,7 +7,7 @@
 Date : 15 octobre 2026.
 
 - Dépôt local : 13 commits, 278 fichiers suivis, environ 11 900 lignes de Python.
-- Pas encore poussé vers GitHub : c'est une action soumise à ton autorisation.
+- Publié sur https://github.com/AbdGhni/healthlake, avec une CI entièrement verte.
 - Tout ce qui est marqué « vérifié » a été exécuté. Tout ce qui ne l'a pas été est marqué « non vérifié », avec
   la cause et la commande à lancer.
 
@@ -63,14 +63,31 @@ le tout. Tout fonctionne en local et a été mesuré jusqu'à 1,8 million de res
 | Secrets | `gitleaks` sur tout l'historique | aucune fuite |
 | Avertissement obligatoire | README, `docs/api`, OpenAPI, tableau de bord | présent |
 
-## 4. Non vérifié
+## 4. Vérifié en intégration continue (GitHub Actions)
+Dépôt public : https://github.com/AbdGhni/healthlake. Chaque push lance 6 jobs sur Ubuntu. La
+[dernière exécution](https://github.com/AbdGhni/healthlake/actions/runs/38810331362) est entièrement verte :
+- lint, mypy (y compris les scripts), pip-audit et gitleaks sur tout l'historique ;
+- tests applicatifs sur **PostgreSQL 17.11** ;
+- tests des DAGs et du tableau de bord ;
+- **e2e** : build des 3 images, scan Trivy, `docker compose up` avec tous les healthchecks, les **5 scénarios de
+  démo via Airflow 3 en conteneurs**, puis **sauvegarde et restauration** avec le runner Docker (Bronze
+  re-haché, comptes rapprochés, test de l'API sur la release restaurée).
+
+Les premières exécutions de la CI ont trouvé 7 défauts, tous corrigés :
+- fixtures de test sans mot de passe ;
+- gitleaks-action en échec au premier push ;
+- permissions des jars dans l'image ;
+- secrets Airflow lus avec un retour à la ligne ;
+- dossier de sauvegarde monté en bind mount ;
+- réinitialisation des mots de passe absente dans la restauration Docker ;
+- sauvegarde qui gelait les runs en cours.
+
+## 4 bis. Non vérifié
 | Élément | Cause | Commande pour vérifier |
 |---|---|---|
-| Build des images, `docker compose up`, Airflow en conteneurs, runner Docker de la démo et de la sauvegarde | pas de démon Docker dans le sandbox | `python scripts/bootstrap.py`, puis `make build up demo`, puis `make backup` et `make restore FROM=...` |
-| PostgreSQL 17.11 | le sandbox a PostgreSQL 16.15 | job CI `tests` (service PG 17) ou la stack Compose |
-| Workflow CI sur GitHub | dépôt non poussé | se lance au premier push, avec ton accord |
-| Scan Trivy des images | images non construites | job CI `e2e` |
-| Profil étendu à chaud, et via Airflow | budget disque et temps du sandbox | `docker compose run --rm synthea --profile extended --revision 1` |
+| Docker Desktop sous Windows (l'hôte visé) | la CI tourne sous Linux | `python scripts/bootstrap.py` puis `make build up demo` depuis PowerShell |
+| Images arm64 | la CI ne construit que pour amd64 | `docker compose build` sur une machine arm64 |
+| Profil étendu via Airflow en conteneurs, et profil étendu à chaud | budget de temps et de disque | `docker compose run --rm synthea --profile extended --revision 1` |
 | Java 17 | Temurin 21 retenu (justifié dans `docs/deployment.md`) | sans objet |
 
 ## 5. Performances mesurées
@@ -132,7 +149,8 @@ Données synthétiques uniquement : aucune donnée personnelle réelle n'a été
 - Conteneurs non-root, ports exposés sur 127.0.0.1 uniquement.
 - Images épinglées par digest, paquets par hash, actions CI par commit.
 
-Rien n'a été poussé, publié, déployé ni payé, et aucune configuration globale de machine n'a été modifiée.
+Le dépôt a été créé et poussé sur GitHub à ta demande. Rien n'a été déployé ni payé, et aucune configuration globale de
+machine n'a été modifiée.
 
 ## 9. Limites connues
 Voir `docs/known-limits.md`, en particulier :
@@ -142,15 +160,14 @@ Voir `docs/known-limits.md`, en particulier :
 - pas de rapprochement de patients entre sources ;
 - la mémoire de la résolution croît avec la taille du lot.
 
-## 10. Ce qui demande ton autorisation
-1. **Créer le dépôt GitHub et pousser.** Cela lancera aussi la CI : PostgreSQL 17, les images, Trivy et le
-   scénario de bout en bout.
-2. **Lancer la stack Docker sur ton PC** (`make bootstrap build up demo`). C'est la principale vérification
-   restante, et elle peut se faire sans moi.
+## 10. Ce qui reste de ton côté
+- Le dépôt est créé et poussé avec ton accord du 15 octobre.
+- Il reste à lancer la stack sur ton PC avec Docker Desktop (`python scripts/bootstrap.py`, puis
+  `make build up demo`). C'est la seule vérification de plateforme encore ouverte.
 
 ## 11. Suites possibles
 Voir `docs/portfolio/extension-backlog.md` :
-1. vérifier la stack Docker ;
+1. vérifier la stack sous Docker Desktop (Windows) ;
 2. charger Silver dans des tables de staging non indexées ;
 3. résolution des références par morceaux ;
 4. validation en parallèle ;

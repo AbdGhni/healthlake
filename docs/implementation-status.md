@@ -98,7 +98,7 @@ Plan, locked dependencies, Synthea 4.0.0 and HL7 validator 7.0.1 pinned, migrati
   Run locally: pip-audit (no known vulnerability in app, dbt, dashboard locks), gitleaks on git history (no leak).
 - Bugs found while writing scenarios and fixed: a scenario derived from a blocked batch; adapter-rejected rows
   produced 3 extra validation issues on their stub resource.
-- Not verified: image builds, compose up, Airflow in containers, PostgreSQL 17, the docker runner of demo/backup.
+- Not verified at the time (sandbox without Docker); verified later in CI: image builds, compose up, Airflow in containers, PostgreSQL 17, the docker runner of demo/backup.
 
 ## Phase 12: end-to-end, extended profile, performance (done, verified without Docker)
 - Five demo scenarios pass on the **demo profile** on a fresh database (local runner); screenshots recaptured
@@ -128,6 +128,12 @@ Plan, locked dependencies, Synthea 4.0.0 and HL7 validator 7.0.1 pinned, migrati
   API docs, OpenAPI and dashboard.
 - Final report: docs/rapport-final.md.
 
+## Publication and CI (2026-10-15)
+- Public repository https://github.com/AbdGhni/healthlake, pushed with the user's authorisation.
+- CI green on every job ([run](https://github.com/AbdGhni/healthlake/actions/runs/38810331362)). This covers the Docker stack, Airflow in containers, the five demo
+  scenarios through Airflow, Docker backup/restore, and PostgreSQL 17.
+- The first CI runs found 7 defects, all fixed (docs/test-report.md).
+
 ## Tests (all run, all pass): 81 (app venv) + 12 (Airflow venv) + 10 (dashboard venv); 100 dbt data tests
 - Airflow venv: 12 DAG tests (import without network/DB, task contract, single leaf, retries, pools, params,
   exit-code mapping, deterministic run ids).
@@ -136,4 +142,4 @@ Plan, locked dependencies, Synthea 4.0.0 and HL7 validator 7.0.1 pinned, migrati
 - ruff, ruff format, mypy --strict: clean.
 
 ## Not verified
-- PostgreSQL 17, Java 17, Docker images (no daemon in the sandbox).
+- Docker Desktop on Windows, arm64 images, Java 17 (Temurin 21 used).

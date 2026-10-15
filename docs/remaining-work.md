@@ -1,9 +1,10 @@
 # Remaining work
 
-All phases are done. What remains needs a Docker host or your authorisation (push to GitHub, which also runs CI).
+All phases are done and the repository is published with a green CI (Docker stack, Airflow in containers,
+PostgreSQL 17). What remains is a run on Docker Desktop for Windows.
 
 Known gaps (also in docs/known-limits.md):
-- Unverified on this machine: Docker build/up, Airflow in containers, PostgreSQL 17, Java 17 (Temurin 21 used).
+- Not verified: Docker Desktop on Windows, arm64 images, Java 17 (Temurin 21 used).
 - Medication from earlier batches is not used to code MedicationRequest.medicationReference.
 - Swagger UI (`/docs`) loads its JS/CSS from a CDN (FastAPI default); offline the OpenAPI JSON still works.
 - Extended profile measured cold only (disk budget of the sandbox: one 10.5 GB database at a time); the warm/cold

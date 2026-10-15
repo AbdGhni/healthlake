@@ -22,8 +22,12 @@ daemon is available there. The Docker runner (`--runner docker`, default) runs t
 | corrupted backup (1 byte appended to lake.tgz) | refused: "lake.tgz does not match the manifest hash" |
 | restore into an existing database | refused: "restore needs a clean target" |
 
-## Not verified here
-- `--runner docker`: pausing DAGs through the Airflow CLI, `docker volume rm` of project volumes, the Airflow
-  metadata restore. Command to verify on a Docker machine:
-  `python scripts/backup.py && python scripts/restore.py --from backups/<timestamp> --wipe-project-volumes`
-  (also run by the CI `e2e` job).
+## Docker runner (CI, 2026-10-15)
+`python3 scripts/backup.py`, then `python3 scripts/restore.py --from backups/<timestamp> --wipe-project-volumes`
+in the CI `e2e` job, on the stack after the five demo scenarios ([run](https://github.com/AbdGhni/healthlake/actions/runs/38810331362)):
+- backup files verified against the manifest hashes;
+- role passwords set again from `.secrets`;
+- Bronze re-hashed: 18 objects, 0 missing, 0 corrupted;
+- reconciliation counts identical to the manifest: 6 batches, 2 931 resource versions, 3 716 occurrences,
+  4 published releases;
+- API smoke test on the restored active release.

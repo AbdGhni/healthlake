@@ -10,11 +10,10 @@ project as more than it is.
 ## Not verified
 | Item | Why | How to verify |
 |---|---|---|
-| `docker compose build` / `up`, healthchecks, Airflow in containers | The development sandbox has no Docker daemon | `make bootstrap build up demo` on a Docker host |
-| PostgreSQL 17.11 (the Compose target) | Tests ran on PostgreSQL 16.15 | CI job `tests` (PostgreSQL 17 service) or the Compose stack |
-| Java 17 | Temurin 21 is used in the image and was used locally (justified in docs/deployment.md) | n/a by design |
-| `scripts/demo.py --runner docker`, backup/restore with the Docker runner | Same reason as above | `python scripts/demo.py --scenario all`, `make backup`, `make restore` |
-| Windows-specific paths in the bootstrap | Developed on Linux; Docker Desktop on Windows is the intended host | Run bootstrap from PowerShell |
+| Docker Desktop on Windows (the intended host) | The stack is verified in CI on Linux only | `python scripts/bootstrap.py`, `make build up demo` from PowerShell |
+| arm64 images (Apple Silicon) | CI builds amd64 only (the Temurin checksum for arm64 is pinned but unused) | `docker compose build` on an arm64 machine |
+| Java 17 | Temurin 21 is used (justified in docs/deployment.md) | n/a by design |
+| Extended profile through Airflow in containers | CI time budget; measured with the local runner | `docker compose run --rm synthea --profile extended --revision 1` |
 
 ## Scope and design limits
 - **Not a medical product.** No clinical decision support, no certification (HDS, HIPAA, ISO 27001), no consent
