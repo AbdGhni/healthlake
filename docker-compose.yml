@@ -31,10 +31,16 @@ x-airflow-env: &airflow-env
   AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "${HEALTHLAKE_DAGS_PAUSED:-False}"
   AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
   AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-api-server:8080/execution/
-  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN_CMD: cat /run/secrets/airflow_db_conn
-  AIRFLOW__CORE__FERNET_KEY_CMD: cat /run/secrets/airflow_fernet_key
-  AIRFLOW__API_AUTH__JWT_SECRET_CMD: cat /run/secrets/airflow_jwt_secret
-  AIRFLOW__API__SECRET_KEY_CMD: cat /run/secrets/airflow_api_secret_key
+  # *_CMD output is used verbatim by Airflow: awk prints the secret without its trailing newline (found by the
+  # first CI stack run: database "airflow\n" does not exist).
+  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN_CMD: >-
+    awk 'BEGIN{ORS=""} {print}' /run/secrets/airflow_db_conn
+  AIRFLOW__CORE__FERNET_KEY_CMD: >-
+    awk 'BEGIN{ORS=""} {print}' /run/secrets/airflow_fernet_key
+  AIRFLOW__API_AUTH__JWT_SECRET_CMD: >-
+    awk 'BEGIN{ORS=""} {print}' /run/secrets/airflow_jwt_secret
+  AIRFLOW__API__SECRET_KEY_CMD: >-
+    awk 'BEGIN{ORS=""} {print}' /run/secrets/airflow_api_secret_key
   AIRFLOW__DAG_PROCESSOR__REFRESH_INTERVAL: "30"
   AIRFLOW__LOGGING__BASE_LOG_FOLDER: /opt/airflow/logs
   HEALTHLAKE_DB_INGEST_PASSWORD_FILE: /run/secrets/db_ingest_password
