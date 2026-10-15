@@ -33,6 +33,9 @@ def run(cmd: list[str], **kw: Any) -> subprocess.CompletedProcess[str]:
     return res
 
 
+TAR_IN_CLI = ["docker", "compose", "run", "--rm", "--no-deps", "-T", "--entrypoint", "tar", "cli"]
+
+
 class Docker:
     name = "docker"
 
@@ -100,46 +103,30 @@ class Docker:
         if res.returncode != 0:
             raise SystemExit(f"[ops] pg_restore {db} failed: {res.stderr.decode()[-800:]}")
 
+    # Archives stream through stdin/stdout instead of a bind mount: the container runs as the Airflow user, which
+    # cannot write to a host directory owned by someone else (found by the first CI backup run), and streams also
+    # work unchanged on Docker Desktop for Windows.
     def archive(self, part: str, out: Path) -> None:
-        run(
-            [
-                "docker",
-                "compose",
-                "run",
-                "--rm",
-                "--no-deps",
-                "-v",
-                f"{out.parent.resolve()}:/backup",
-                "--entrypoint",
-                "tar",
-                "cli",
-                "-czf",
-                f"/backup/{out.name}",
-                "-C",
-                "/data",
-                part,
-            ]
-        )
+        with out.open("wb") as f:
+            res = subprocess.run(
+                [*TAR_IN_CLI, "-czf", "-", "-C", "/data", part],
+                stdout=f,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+        if res.returncode != 0:
+            raise SystemExit(f"[ops] archive of {part} failed: {res.stderr.decode()[-500:]}")
 
     def unarchive(self, part: str, tgz: Path) -> None:
-        run(
-            [
-                "docker",
-                "compose",
-                "run",
-                "--rm",
-                "--no-deps",
-                "-v",
-                f"{tgz.parent.resolve()}:/backup:ro",
-                "--entrypoint",
-                "tar",
-                "cli",
-                "-xzf",
-                f"/backup/{tgz.name}",
-                "-C",
-                "/data",
-            ]
-        )
+        with tgz.open("rb") as f:
+            res = subprocess.run(
+                [*TAR_IN_CLI, "-xzf", "-", "-C", "/data"],
+                stdin=f,
+                capture_output=True,
+                check=False,
+            )
+        if res.returncode != 0:
+            raise SystemExit(f"[ops] restore of {part} failed: {res.stderr.decode()[-500:]}")
 
     def cli(self, *args: str) -> dict[str, Any]:
         res = subprocess.run(
