@@ -1,7 +1,6 @@
 # Remaining work
 
-Next: phase 13 (portfolio documentation: mostly written, to be reviewed against final numbers), phase 14 (final
-verification and final report).
+All phases are done. What remains needs a Docker host or your authorisation (push to GitHub, which also runs CI).
 
 Known gaps (also in docs/known-limits.md):
 - Unverified on this machine: Docker build/up, Airflow in containers, PostgreSQL 17, Java 17 (Temurin 21 used).

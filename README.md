@@ -192,6 +192,7 @@ The full list is in [docs/known-limits.md](docs/known-limits.md).
 | Backup and restore | [docs/restore-report.md](docs/restore-report.md) |
 | Tests, performance | [docs/test-report.md](docs/test-report.md), [docs/performance/README.md](docs/performance/README.md) |
 | Portfolio (demo script, talk, CV, interview) | [docs/portfolio/](docs/portfolio/README.md) |
+| Final report (French) | [docs/rapport-final.md](docs/rapport-final.md) |
 
 ## Licence
 Apache License 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE). Synthea and the HL7 validator are used as

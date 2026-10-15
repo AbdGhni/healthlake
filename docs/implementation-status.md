@@ -121,6 +121,13 @@ Plan, locked dependencies, Synthea 4.0.0 and HL7 validator 7.0.1 pinned, migrati
   docs/known-limits.md; docs/portfolio (5-minute demo, 15-minute talk, CV and LinkedIn texts in English and
   French, interview Q&A, extension backlog).
 
+## Phase 14: final verification (done)
+- From a clean clone: 81 app tests pass, ruff and format clean; `docker compose config` valid (with and without
+  the tools profile); pip-audit clean on the 4 lockfiles; gitleaks clean on the whole history; the 8 Mermaid
+  diagrams render (mermaid-cli 11.4.2); no broken relative link in the docs; disclaimer present in the README,
+  API docs, OpenAPI and dashboard.
+- Final report: docs/rapport-final.md.
+
 ## Tests (all run, all pass): 81 (app venv) + 12 (Airflow venv) + 10 (dashboard venv); 100 dbt data tests
 - Airflow venv: 12 DAG tests (import without network/DB, task contract, single leaf, retries, pools, params,
   exit-code mapping, deterministic run ids).
