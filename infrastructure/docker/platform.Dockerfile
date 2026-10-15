@@ -55,7 +55,10 @@ ENV HEALTHLAKE_CONFIG_DIR=/opt/healthlake/config \
 
 USER airflow
 # Pre-load FHIR packages (R4 core, terminology, US Core) so validation later runs offline with -tx n/a.
-RUN java -jar /opt/healthlake/validator_cli.jar /opt/healthlake/fhir-warmup.json -version 4.0.1 -tx n/a \
-      -output /tmp/warmup-result.json > /tmp/warmup.log 2>&1 \
-    && ls /home/airflow/.fhir/packages | grep -q 'hl7.fhir.r4.core#4.0.1' && rm -f /tmp/warmup*
+RUN { java -jar /opt/healthlake/validator_cli.jar /opt/healthlake/fhir-warmup.json -version 4.0.1 -tx n/a \
+        -output /tmp/warmup-result.json > /tmp/warmup.log 2>&1 \
+      && ls /home/airflow/.fhir/packages | grep -q 'hl7.fhir.r4.core#4.0.1'; } \
+    || { echo "FHIR warm-up failed; validator log tail:"; tail -n 40 /tmp/warmup.log; \
+         grep -m1 'Package Cache' /tmp/warmup.log || true; id; exit 1; } \
+    && rm -f /tmp/warmup*
 RUN healthlake --version && /opt/dbt-venv/bin/dbt --version > /dev/null && airflow version
